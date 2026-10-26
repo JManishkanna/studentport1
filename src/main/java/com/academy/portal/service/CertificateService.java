@@ -134,7 +134,7 @@ public class CertificateService {
         add(document, spaced("This is to certify that", LEAD_IN), 12f, 8f);
         add(document, spaced(studentFullName(student), NAME), 0f, 4f);
         add(document, spaced("Roll number " + student.getRollNumber()
-                + "  ·  " + student.getClassLevel() + "  ·  Section " + student.getSection(), LABEL), 0f, 18f);
+                + "  ·  " + student.getClassLevel(), LABEL), 0f, 18f);
 
         Paragraph statement = new Paragraph(
                 "has successfully completed the programme of study in " + student.getClassLevel()
@@ -143,9 +143,8 @@ public class CertificateService {
         statement.setAlignment(Element.ALIGN_CENTER);
         add(document, statement, 0f, 16f);
 
-        CourseSummary courses = coursesOf(student);
-        add(document, spaced(courses.names(), STRONG), 0f, 3f);
-        add(document, spaced(courses.credits() + " credits  ·  Conferred on "
+        add(document, spaced(coursesOf(student), STRONG), 0f, 3f);
+        add(document, spaced("Conferred on "
                 + request.conferredOn().format(LONG_DATE) + term, LABEL), 0f, 30f);
 
         add(document, signatures(student, issuer), 0f, 8f);
@@ -191,21 +190,19 @@ public class CertificateService {
         return table;
     }
 
-    private CourseSummary coursesOf(Student student) {
+    private String coursesOf(Student student) {
         List<Long> subjectIds = enrollmentRepository.findByStudentIdOrderByIdAsc(student.getId()).stream()
                 .map(Enrollment::getSubjectId)
                 .toList();
         if (subjectIds.isEmpty()) {
-            return new CourseSummary("Programme requirements as recorded in the academy register", 0);
+            return "Programme requirements as recorded in the academy register";
         }
         Map<Long, Subject> byId = subjectRepository.findAllById(subjectIds).stream()
                 .collect(Collectors.toMap(Subject::getId, Function.identity()));
-        List<Subject> courses = subjectIds.stream().map(byId::get).filter(Objects::nonNull)
+        return subjectIds.stream().map(byId::get).filter(Objects::nonNull)
                 .sorted(Comparator.comparing(Subject::getCode))
-                .toList();
-        String names = courses.stream().map(Subject::getName).collect(Collectors.joining("  ·  "));
-        int credits = courses.stream().mapToInt(subject -> subject.getCredits() == null ? 0 : subject.getCredits()).sum();
-        return new CourseSummary(names, credits);
+                .map(Subject::getName)
+                .collect(Collectors.joining("  ·  "));
     }
 
     /** A double frame around the page, drawn under the text of the page the writer is on. */
@@ -247,8 +244,5 @@ public class CertificateService {
 
     private static String slug(String rollNumber) {
         return rollNumber.replaceAll("[^A-Za-z0-9._-]", "-");
-    }
-
-    private record CourseSummary(String names, int credits) {
     }
 }

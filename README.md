@@ -143,8 +143,8 @@ for that student. Selections are held by id, so filtering the list never drops a
 covers up to 200 graduates.
 
 Each page prints the academy name from `portal.certificate.academy-name` (override with
-`CERTIFICATE_ACADEMY_NAME`), the graduate's roll number, programme and section, the subjects they
-were enrolled in with their credit total, the conferral date and term, and two signature rules — the
+`CERTIFICATE_ACADEMY_NAME`), the graduate's roll number and programme, the subjects they were
+enrolled in, the conferral date and term, and two signature rules — the
 programme's Head of Department, or the first of that programme's faculty by surname when no HoD is on
 staff, beside the administrator who issued the run. A `CERT-<roll>-<yyyyMMdd>` serial line closes the
 page.
