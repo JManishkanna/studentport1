@@ -6,6 +6,7 @@ records and contact information, with role-based sign-in.
 | Layer | Technology |
 | --- | --- |
 | Backend | Java 17+, Spring Boot 3.5 (web, data-jpa, security, validation) |
+| Documents | OpenPDF — graduation certificates are drawn server-side as real PDFs |
 | Database | MySQL 8.0, plain SQL schema + seed scripts |
 | Frontend | Static HTML, CSS, vanilla JavaScript (no framework, no build step) |
 | Build | Maven (`pom.xml`), Spring Boot executable jar |
@@ -104,6 +105,7 @@ Created automatically on first boot by `UserSeeder` (BCrypt-hashed; disable with
 | Teacher profile | `static/teacher-profile.html` | Contact info, qualifications, weekly timetable, subjects and classes taught |
 | Timetable | `static/schedule.html` | Week grid with class/section/teacher/subject filters; admin builds sessions |
 | Contacts | `static/contacts.html` | Role-scoped people directory (see below) plus department desks and helplines grouped by category |
+| Certificates | `static/certificates.html` | ADMIN only: tick one or many graduates and download the certificate PDFs |
 
 ## 6. REST API
 
@@ -128,6 +130,24 @@ from `GET /api/auth/csrf`).
 | `GET` | `/api/contacts`, `/api/contacts/categories`, `/api/subjects` | any signed-in user |
 | `GET` | `/api/contacts/people` | any signed-in user, scoped to their own classes |
 | `POST` `PUT` `DELETE` | `/api/contacts/**` | ADMIN |
+| `POST` | `/api/certificates` → `application/pdf` | ADMIN |
+
+### Graduation certificates
+
+`POST /api/certificates` takes `{"studentIds":[1,3],"conferredOn":"2026-12-15","term":"2026-ODD"}`
+and answers with one landscape A4 page per graduate (`Content-Disposition` names the file,
+`X-Certificate-Count` states how many pages were drawn). The picker in `certificates.html` is the
+only caller: search or filter the register, tick students (or **All listed**), set the conferral date
+and term, then **Generate certificates**. A row's **Certify only** button issues a single certificate
+for that student. Selections are held by id, so filtering the list never drops a pick, and one run
+covers up to 200 graduates.
+
+Each page prints the academy name from `portal.certificate.academy-name` (override with
+`CERTIFICATE_ACADEMY_NAME`), the graduate's roll number, programme and section, the subjects they
+were enrolled in with their credit total, the conferral date and term, and two signature rules — the
+programme's Head of Department, or the first of that programme's faculty by surname when no HoD is on
+staff, beside the administrator who issued the run. A `CERT-<roll>-<yyyyMMdd>` serial line closes the
+page.
 
 ### Who the contacts page shows
 

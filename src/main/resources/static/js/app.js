@@ -13,6 +13,7 @@ const Portal = (() => {
         { key: 'teachers', label: 'Teachers', href: 'teachers.html', icon: '⚭', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
         { key: 'schedule', label: 'Timetable', href: 'schedule.html', icon: '▤', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
         { key: 'contacts', label: 'Contacts', href: 'contacts.html', icon: '☏', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
+        { key: 'certificates', label: 'Certificates', href: 'certificates.html', icon: '✦', roles: ['ADMIN'] },
         { section: 'Account' },
         { key: 'me', label: 'My profile', href: 'student-profile.html?me=1', icon: '◐', roles: ['STUDENT'] },
         { key: 'me', label: 'My profile', href: 'teacher-profile.html?me=1', icon: '◐', roles: ['TEACHER'] },
@@ -343,9 +344,46 @@ const Portal = (() => {
         return value === null || value === '' ? fallback : value;
     }
 
+    /** Posts for a file answer and saves it; a failed run still arrives as JSON. */
+    async function download(path, body, fallbackName = 'download.pdf') {
+        const response = await fetch(path, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', [csrf.headerName]: csrf.token },
+            body: JSON.stringify(body),
+            credentials: 'same-origin',
+        });
+
+        if (response.status === 401) {
+            window.location.href = 'login.html?expired=1';
+            throw new Error('Your session has ended. Please sign in again.');
+        }
+
+        const type = response.headers.get('Content-Type') || '';
+        if (!response.ok || !type.includes('application/pdf')) {
+            const payload = parse(await response.text());
+            const detail = payload && (payload.detail || payload.message);
+            const error = new Error(detail || `Request failed with status ${response.status}`);
+            error.status = response.status;
+            throw error;
+        }
+
+        const quoted = /filename="?([^";]+)"?/.exec(response.headers.get('Content-Disposition') || '');
+        const filename = quoted ? quoted[1] : fallbackName;
+        const url = URL.createObjectURL(await response.blob());
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+
+        return { filename, count: Number(response.headers.get('X-Certificate-Count')) || null };
+    }
+
     return {
         esc, get, post, put, del, boot, refreshCsrf, current, isAdmin, isTeacher, isStudent, label,
         initials, formatDate, formatTime, dayName, days: DAYS, age,
-        mountShell, toast, recordForm, confirmDialog, statusBadge, slotCard, emptyState, queryParam,
+        mountShell, toast, recordForm, confirmDialog, statusBadge, slotCard, emptyState, queryParam, download,
     };
 })();

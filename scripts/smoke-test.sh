@@ -66,6 +66,27 @@ expect_out() {
     fi
 }
 
+# A certificate answer is a binary PDF, so it needs its own file and its own assertions:
+# the server must say so, the bytes must open with the PDF magic and carry one page per graduate.
+cert() { # cert LABEL BODY EXPECTED_PAGES EXPECTED_FILENAME_FRAGMENT
+    local label="$1" body="$2" want_pages="$3" want_name="$4" tk status pages
+    tk=$(curl -s -b "$JAR" -c "$JAR" "$BASE/api/auth/csrf" | sed -E 's/.*"token":"([^"]+)".*/\1/')
+    status=$(curl -s -D /tmp/portal-headers.txt -o /tmp/portal-cert.pdf -w "%{http_code}" \
+        -b "$JAR" -c "$JAR" -X POST "$BASE/api/certificates" \
+        -H "X-XSRF-TOKEN: $tk" -H 'Content-Type: application/json' -d "$body")
+    pages=$(grep -aoE '/Type[[:space:]]*/Page([^s]|$)' /tmp/portal-cert.pdf | wc -l | tr -d ' ')
+
+    if [ "$status" = "200" ] && head -c 5 /tmp/portal-cert.pdf | grep -q '%PDF-' \
+        && grep -qi 'application/pdf' /tmp/portal-headers.txt \
+        && [ "$pages" = "$want_pages" ] && grep -qi "filename=.*$want_name" /tmp/portal-headers.txt; then
+        PASS=$((PASS + 1))
+        printf '  ok   %-46s 200 pdf, %s page(s)\n' "$label" "$pages"
+    else
+        FAIL=$((FAIL + 1))
+        printf '  FAIL %-46s got %s, %s page(s), want %s and [%s]\n' "$label" "$status" "$pages" "$want_pages" "$want_name"
+    fi
+}
+
 echo "== admin =="
 JAR=$(mktemp)
 [ "$(login "$JAR" admin admin123)" = "302" ] || { echo "admin login failed"; exit 1; }
@@ -125,6 +146,12 @@ CONTACT_ID=$(first_id)
 check "contact updated" 200 PUT "/api/contacts/$CONTACT_ID" "$(echo "$CONTACT" | sed 's/"name":"Smoke Test Desk"/"name":"Renamed Desk"/')"
 check "contact deleted" 200 DELETE "/api/contacts/$CONTACT_ID"
 
+cert "one certificate" '{"studentIds":[1],"conferredOn":"2026-10-30","term":"2026-ODD"}' 1 'graduation-certificate-ACAD-1101.pdf'
+cert "one certificate per graduate" '{"studentIds":[1,3,9],"conferredOn":"2026-12-15","term":"2026-ODD"}' 3 'graduation-certificates-3-students.pdf'
+check "certificate without a date" 400 POST /api/certificates '{"studentIds":[1]}'
+check "certificate with no student" 400 POST /api/certificates '{"studentIds":[],"conferredOn":"2026-10-30"}'
+check "certificate for a ghost" 404 POST /api/certificates '{"studentIds":[999999],"conferredOn":"2026-10-30"}'
+
 echo
 echo "== teacher =="
 JAR=$(mktemp)
@@ -147,6 +174,7 @@ check "cannot admit student" 403 POST /api/students "$STUDENT"
 check "cannot edit session" 403 PUT "/api/schedules/1" "$GOOD"
 check "cannot add contact" 403 POST /api/contacts "$CONTACT"
 check "cannot delete student" 403 DELETE "/api/students/$ENROLL_ID"
+check "cannot issue certificates" 403 POST /api/certificates '{"studentIds":[1],"conferredOn":"2026-10-30"}'
 
 echo
 echo "== student =="
@@ -171,6 +199,7 @@ check "cannot browse roster" 403 GET /api/students
 check "cannot read other schedule" 403 GET /api/students/2/schedule
 check "cannot edit own record" 403 PUT /api/students/1 "$STUDENT"
 check "cannot add teacher" 403 POST /api/teachers '{"employeeCode":"X","firstName":"a","lastName":"b","department":"c","email":"x@y.edu"}'
+check "cannot issue a certificate" 403 POST /api/certificates '{"studentIds":[1],"conferredOn":"2026-10-30"}'
 
 echo
 echo "== access control without a session =="
@@ -178,6 +207,7 @@ rm -f "$JAR"
 check "dashboard needs login" 401 GET /api/dashboard
 check "students need login" 401 GET /api/students
 check "people list needs login" 401 GET /api/contacts/people
+check "certificates need login" 401 POST /api/certificates '{"studentIds":[1],"conferredOn":"2026-10-30"}'
 check "portal page redirects" 302 GET /index.html
 check "sign-in page is public" 200 GET /login.html
 
