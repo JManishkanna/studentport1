@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/teachers")
@@ -88,6 +89,20 @@ public class TeacherController {
     public Map<String, String> delete(@PathVariable Long id) {
         teacherService.delete(id);
         return Map.of("status", "deleted", "id", String.valueOf(id));
+    }
+
+    // ---- administration of a teacher's picture -----------------------------
+
+    @PostMapping("/{id}/photo")
+    @PreAuthorize("hasRole('ADMIN')")
+    public TeacherDto uploadPhoto(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
+        return teacherService.setPhoto(id, file);
+    }
+
+    @DeleteMapping("/{id}/photo")
+    @PreAuthorize("hasRole('ADMIN')")
+    public TeacherDto removePhoto(@PathVariable Long id) {
+        return teacherService.clearPhoto(id);
     }
 
     // ---- administration of a teacher's sign-in -----------------------------

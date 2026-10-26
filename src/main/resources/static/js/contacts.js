@@ -1,5 +1,5 @@
 (() => {
-    const { esc, get, post, put, del, recordForm, confirmDialog, toast, queryParam } = Portal;
+    const { esc, get, post, put, del, avatar, recordForm, confirmDialog, toast, queryParam } = Portal;
     const content = document.getElementById('content');
 
     const state = {
@@ -305,9 +305,14 @@
                     <div class="card-body tight">
                         ${tableOf(members.map(personRow => `<tr>
                             <td>
-                                <div class="cell-strong">${esc(personRow.name)}</div>
-                                <div class="cell-sub">${esc(personRow.code || '')}</div>
-                                <div class="cell-sub">${esc(personRow.detail || hint)}</div>
+                                <div class="person">
+                                    ${avatar(personRow.photoUrl, personRow.name, 'avatar-xs')}
+                                    <div>
+                                        <div class="cell-strong">${esc(personRow.name)}</div>
+                                        <div class="cell-sub">${esc(personRow.code || '')}</div>
+                                        <div class="cell-sub">${esc(personRow.detail || hint)}</div>
+                                    </div>
+                                </div>
                             </td>
                             <td>
                                 ${personRow.phone

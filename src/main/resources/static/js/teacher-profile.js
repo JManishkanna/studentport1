@@ -1,5 +1,5 @@
 (() => {
-    const { esc, get, initials, statusBadge, formatDate, formatTime, dayName, queryParam, toast } = Portal;
+    const { esc, get, del, upload, avatar, statusBadge, formatDate, formatTime, dayName, queryParam, toast, confirmDialog } = Portal;
     const content = document.getElementById('content');
 
     function groupBy(items, keyFn) {
@@ -34,6 +34,7 @@
     async function load() {
         const me = await Portal.boot('teachers');
         const asSelf = queryParam('me') === '1';
+        const canAdmin = me.role === 'ADMIN';
 
         if (!asSelf && !queryParam('id')) {
             throw new Error('Open a teacher from the directory, or use the "My profile" link.');
@@ -57,12 +58,17 @@
             <section class="card">
                 <div class="card-body">
                     <div class="person">
-                        <div class="avatar-lg">${esc(initials(`${teacher.firstName} ${teacher.lastName}`))}</div>
+                        ${avatar(teacher.photoUrl, `${teacher.firstName} ${teacher.lastName}`)}
                         <div>
                             <h2>${esc(teacher.firstName)} ${esc(teacher.lastName)}</h2>
                             <div class="meta">${esc(teacher.employeeCode)} · ${esc(teacher.designation || 'Faculty')} · ${esc(teacher.department)}</div>
                         </div>
-                        <div style="margin-left:auto" class="chip-row">${statusBadge(teacher.status)}</div>
+                        <div style="margin-left:auto" class="chip-row">
+                            ${statusBadge(teacher.status)}
+                            ${canAdmin ? `<input id="photo-file" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+                                <button class="btn btn-ghost btn-sm" id="photo-pick">Change photo</button>
+                                <button class="btn btn-ghost btn-sm" id="photo-remove"${teacher.photoUrl ? '' : ' disabled'}>Remove photo</button>` : ''}
+                        </div>
                     </div>
                 </div>
             </section>
@@ -138,6 +144,46 @@
                     </div>
                 </div>
             </section>`;
+
+        if (canAdmin) bindPhoto(teacher);
+    }
+
+    async function reload() {
+        content.innerHTML = '<div class="skeleton"><span class="spinner"></span> Reloading…</div>';
+        await load();
+    }
+
+    /** Admins manage the picture stored on the teacher's sign-in. */
+    function bindPhoto(teacher) {
+        const file = document.getElementById('photo-file');
+        document.getElementById('photo-pick').addEventListener('click', () => file.click());
+        file.addEventListener('change', async () => {
+            if (!file.files[0]) return;
+            const form = new FormData();
+            form.append('file', file.files[0]);
+            try {
+                await upload(`api/teachers/${teacher.id}/photo`, form);
+                toast('Profile picture updated');
+                await reload();
+            } catch (error) {
+                toast(error.message, 'err');
+            }
+        });
+        document.getElementById('photo-remove').addEventListener('click', async () => {
+            const ok = await confirmDialog({
+                title: 'Remove this picture?',
+                message: 'Their initials will show in its place until another picture is uploaded.',
+                confirmLabel: 'Remove',
+            });
+            if (!ok) return;
+            try {
+                await del(`api/teachers/${teacher.id}/photo`);
+                toast('Profile picture removed');
+                await reload();
+            } catch (error) {
+                toast(error.message, 'err');
+            }
+        });
     }
 
     load().catch(error => {

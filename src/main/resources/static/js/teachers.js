@@ -1,5 +1,5 @@
 (() => {
-    const { esc, get, post, put, del, initials, statusBadge, recordForm, confirmDialog, toast, queryParam } = Portal;
+    const { esc, get, post, put, del, avatar, statusBadge, recordForm, confirmDialog, toast, queryParam } = Portal;
     const content = document.getElementById('content');
 
     const state = { q: queryParam('q', ''), department: queryParam('department', ''), teachers: [], departments: [] };
@@ -109,7 +109,7 @@
                         <article class="card" data-id="${t.id}" style="cursor:pointer">
                             <div class="card-body">
                                 <div class="person">
-                                    <div class="avatar-lg">${esc(initials(`${t.firstName} ${t.lastName}`))}</div>
+                                    ${avatar(t.photoUrl, `${t.firstName} ${t.lastName}`)}
                                     <div style="min-width:0">
                                         <div class="cell-strong">${esc(t.firstName)} ${esc(t.lastName)}</div>
                                         <div class="cell-sub">${esc(t.designation || 'Faculty')} · ${esc(t.department)}</div>

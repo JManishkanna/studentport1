@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/students")
@@ -110,6 +111,20 @@ public class StudentController {
     public Map<String, String> delete(@PathVariable Long id) {
         studentService.delete(id);
         return Map.of("status", "deleted", "id", String.valueOf(id));
+    }
+
+    // ---- administration of a student's picture -----------------------------
+
+    @PostMapping("/{id}/photo")
+    @PreAuthorize("hasRole('ADMIN')")
+    public StudentDto uploadPhoto(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
+        return studentService.setPhoto(id, file);
+    }
+
+    @DeleteMapping("/{id}/photo")
+    @PreAuthorize("hasRole('ADMIN')")
+    public StudentDto removePhoto(@PathVariable Long id) {
+        return studentService.clearPhoto(id);
     }
 
     // ---- administration of a student's sign-in -----------------------------

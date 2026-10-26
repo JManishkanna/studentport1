@@ -32,19 +32,22 @@ public class ContactService {
     private final ClassScheduleRepository scheduleRepository;
     private final AppUserRepository userRepository;
     private final CurrentUserService currentUserService;
+    private final ProfilePhotoService photoService;
 
     public ContactService(ContactRepository contactRepository,
                           StudentRepository studentRepository,
                           TeacherRepository teacherRepository,
                           ClassScheduleRepository scheduleRepository,
                           AppUserRepository userRepository,
-                          CurrentUserService currentUserService) {
+                          CurrentUserService currentUserService,
+                          ProfilePhotoService photoService) {
         this.contactRepository = contactRepository;
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
         this.scheduleRepository = scheduleRepository;
         this.userRepository = userRepository;
         this.currentUserService = currentUserService;
+        this.photoService = photoService;
     }
 
     /**
@@ -106,7 +109,8 @@ public class ContactService {
                 // The mailbox has no programme, so it never appears under a programme filter.
                 .forEach(admin -> people.add(new PersonContactDto(admin.getId(), PersonContactDto.ADMINISTRATION,
                         admin.getFullName(), admin.getUsername(), null, null, admin.getEmail(),
-                        "Academy administration", null, null)));
+                        "Academy administration", null, null,
+                        photoService.urlFor(admin.getId()).orElse(null))));
         return people;
     }
 
@@ -121,7 +125,8 @@ public class ContactService {
                     return new PersonContactDto(teacher.getId(), PersonContactDto.FACULTY,
                             fullName(teacher.getFirstName(), teacher.getLastName()),
                             teacher.getEmployeeCode(), teacher.getPhone(), null, teacher.getEmail(), detail,
-                            teacher.getDepartment(), null);
+                            teacher.getDepartment(), null,
+                            photoService.urlForPerson(Role.TEACHER, teacher.getId()).orElse(null));
                 })
                 .toList();
     }
@@ -131,7 +136,8 @@ public class ContactService {
                 fullName(student.getFirstName(), student.getLastName()),
                 student.getRollNumber(), student.getPhone(), student.getGuardianPhone(), student.getEmail(),
                 student.getClassLevel() + " - Section " + student.getSection(),
-                student.getClassLevel(), "Section " + student.getSection());
+                student.getClassLevel(), "Section " + student.getSection(),
+                photoService.urlForPerson(Role.STUDENT, student.getId()).orElse(null));
     }
 
     private static String fullName(String firstName, String lastName) {

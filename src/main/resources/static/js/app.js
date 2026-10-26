@@ -406,6 +406,13 @@ const Portal = (() => {
         return `<span class="badge ${esc(cls)}">${esc(text)}</span>`;
     }
 
+    /** A profile picture when the person has one, otherwise their initials in the same frame. */
+    function avatar(photoUrl, name, variant = 'avatar-lg') {
+        return photoUrl
+            ? `<img class="${variant}" src="${esc(photoUrl)}" alt="Picture of ${esc(name)}">`
+            : `<div class="${variant}">${esc(initials(name))}</div>`;
+    }
+
     function slotCard(row, { showClass = true } = {}) {
         return `
             <div class="slot" data-id="${row.id}">
@@ -500,7 +507,7 @@ const Portal = (() => {
     return {
         esc, get, post, put, del, boot, refreshCsrf, current, isAdmin, isTeacher, isStudent, label,
         initials, formatDate, formatTime, dayName, days: DAYS, age,
-        mountShell, toast, recordForm, confirmDialog, loginDialog, statusBadge, slotCard, emptyState, queryParam,
+        mountShell, toast, recordForm, confirmDialog, loginDialog, statusBadge, avatar, slotCard, emptyState, queryParam,
         download, upload, refreshMe,
     };
 })();

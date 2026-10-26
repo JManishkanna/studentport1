@@ -103,11 +103,11 @@ cert() { # cert LABEL BODY EXPECTED_PAGES EXPECTED_FILENAME_FRAGMENT
 
 # A profile picture arrives as multipart, so it needs its own request helper. The answer is left
 # in /tmp/portal-resp.json like the other helpers, for expect_in to read.
-photo_upload() { # photo_upload LABEL FILE EXPECTED_STATUS
-    local label="$1" file="$2" want="$3" tk got
+photo_upload() { # photo_upload LABEL PATH FILE EXPECTED_STATUS
+    local label="$1" path="$2" file="$3" want="$4" tk got
     tk=$(curl -s -b "$JAR" -c "$JAR" "$BASE/api/auth/csrf" | sed -E 's/.*"token":"([^"]+)".*/\1/')
     got=$(curl -s -o /tmp/portal-resp.json -w "%{http_code}" -b "$JAR" -c "$JAR" \
-        -X POST "$BASE/api/profile/photo" -H "X-XSRF-TOKEN: $tk" -H 'Accept: application/json' \
+        -X POST "$BASE$path" -H "X-XSRF-TOKEN: $tk" -H 'Accept: application/json' \
         -F "file=@$file;type=image/png")
     if [ "$got" = "$want" ]; then
         PASS=$((PASS + 1)); printf '  ok   %-46s %s\n' "$label" "$got"
@@ -125,6 +125,18 @@ photo_get() { # photo_get LABEL USER_ID EXPECTED_STATUS
         FAIL=$((FAIL + 1)); printf '  FAIL %-46s got %s, want %s\n' "$label" "$got" "$want"
     fi
 }
+
+photo_url_get() { # photo_url_get LABEL RELATIVE_URL EXPECTED_STATUS -> any signed-in role may fetch it
+    local label="$1" url="$2" want="$3" got
+    got=$(curl -s -D /tmp/portal-headers.txt -o /tmp/portal-photo.bin -w "%{http_code}" -b "$JAR" "$BASE/$url")
+    if [ "$got" = "$want" ] && { [ "$want" != "200" ] || grep -qi 'content-type: image/png' /tmp/portal-headers.txt; }; then
+        PASS=$((PASS + 1)); printf '  ok   %-46s %s\n' "$label" "$got"
+    else
+        FAIL=$((FAIL + 1)); printf '  FAIL %-46s got %s, want %s\n' "$label" "$got" "$want"
+    fi
+}
+
+first_photo_url() { sed -E 's/.*"photoUrl":"([^"]+)".*/\1/' /tmp/portal-resp.json | head -1; }
 
 echo "== admin =="
 JAR=$(mktemp)
@@ -160,10 +172,10 @@ mkdir -p target/smoke
 printf 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' \
     | base64 -d > target/smoke/one.png
 printf 'this is not an image\n' > target/smoke/fake.png
-photo_upload "profile picture accepted" target/smoke/one.png 200
+photo_upload "profile picture accepted" /api/profile/photo target/smoke/one.png 200
 expect_in "picture url handed back" '"photoUrl":"api/profile/photo/'
 photo_get "picture served back" "$ADMIN_UID" 200
-photo_upload "non-image refused" target/smoke/fake.png 400
+photo_upload "non-image refused" /api/profile/photo target/smoke/fake.png 400
 check "picture removed" 200 DELETE /api/profile/photo
 photo_get "removed picture is gone" "$ADMIN_UID" 404
 
@@ -172,6 +184,16 @@ check "admit student" 200 POST /api/students "$STUDENT"
 NEW_ID=$(first_id)
 check "duplicate roll rejected" 409 POST /api/students "$STUDENT"
 check "update student" 200 PUT "/api/students/$NEW_ID" "$(echo "$STUDENT" | sed 's/"city":"Bengaluru"/"city":"Pune"/')"
+
+# Administrators manage a student's picture from the record; the student can still replace it
+# from Account settings. The picture lives on the sign-in row, so it needs one to exist.
+photo_upload "admin sets a student picture" "/api/students/$NEW_ID/photo" target/smoke/one.png 200
+expect_in "student record carries the picture" '"photoUrl":"api/profile/photo/'
+photo_url_get "student picture readable by the admin" "$(first_photo_url)" 200
+photo_upload "non-image student picture refused" "/api/students/$NEW_ID/photo" target/smoke/fake.png 400
+photo_upload "picture for a ghost student" /api/students/999999/photo target/smoke/one.png 404
+check "admin removes the student picture" 200 DELETE "/api/students/$NEW_ID/photo"
+expect_in "student record drops the picture" '"photoUrl":null'
 
 # The student login is the academy email on the shared default password. A freshly admitted
 # student walks through sign-in, a self-service change, and an administrator reset.
@@ -204,6 +226,12 @@ ENROLL_ID=$(first_id)
 check "enroll in subject" 200 POST "/api/students/$ENROLL_ID/subjects/1" '{}'
 check "subjects show enrollment" 200 GET "/api/students/$ENROLL_ID/subjects"
 check "drop subject" 200 DELETE "/api/students/$ENROLL_ID/subjects/1"
+
+# Kept for the teacher and student sections: a picture set on this student must be readable
+# by every signed-in role, the way it is rendered on the contacts page.
+photo_upload "picture left on a student" "/api/students/$ENROLL_ID/photo" target/smoke/one.png 200
+expect_in "second student carries the picture" '"photoUrl":"api/profile/photo/'
+SHARED_PHOTO=$(first_photo_url)
 check "missing student 404" 404 GET /api/students/999999
 check "invalid payload 400" 400 POST /api/students '{"rollNumber":"","firstName":"","email":"nope","classLevel":"","status":"WEIRD"}'
 
@@ -231,6 +259,16 @@ check "set a teacher password" 200 POST "/api/teachers/$TEACHER_ID/login/reset" 
 expect_in "teacher password is no longer the default" '"passwordIsDefault":false'
 check_login "teacher signs in with the new password" "$RUN_TAG"t2@academy.edu 'TempPass#2026'
 check "too short a teacher password rejected" 400 POST "/api/teachers/$TEACHER_ID/login/reset" '{"password":"short"}'
+
+photo_upload "admin sets a teacher picture" "/api/teachers/$TEACHER_ID/photo" target/smoke/one.png 200
+expect_in "teacher record carries the picture" '"photoUrl":"api/profile/photo/'
+TEACHER_PHOTO=$(first_photo_url)
+photo_url_get "teacher picture readable by the admin" "$TEACHER_PHOTO" 200
+check "faculty contact photos" 200 GET /api/contacts/people
+expect_in "faculty contact rows carry it" "$TEACHER_PHOTO"
+check "admin removes the teacher picture" 200 DELETE "/api/teachers/$TEACHER_ID/photo"
+expect_in "teacher record drops the picture" '"photoUrl":null'
+photo_upload "non-image teacher picture refused" "/api/teachers/$TEACHER_ID/photo" target/smoke/fake.png 400
 
 CONTACT='{"category":"SMOKE","name":"Smoke Test Desk","department":"QA","phone":"+91 80 0000 0000","email":"smoke@academy.edu","location":"Basement","availableHours":"Never"}'
 check "contact created" 200 POST /api/contacts "$CONTACT"
@@ -281,6 +319,9 @@ check "cannot issue certificates" 403 POST /api/certificates '{"studentIds":[1],
 check "cannot preview certificates" 403 POST /api/certificates/preview '{"studentIds":[1],"conferredOn":"2026-10-30"}'
 check "cannot read teacher sign-ins" 403 GET /api/teachers/1/login
 check "cannot reset a teacher password" 403 POST /api/teachers/1/login/reset '{}'
+photo_url_get "student picture visible to a teacher" "$SHARED_PHOTO" 200
+photo_upload "teacher cannot set a student picture" "/api/students/$ENROLL_ID/photo" target/smoke/one.png 403
+check "cannot remove a student picture" 403 DELETE "/api/students/$ENROLL_ID/photo"
 
 echo
 echo "== student =="
@@ -313,6 +354,9 @@ check "cannot issue a certificate" 403 POST /api/certificates '{"studentIds":[1]
 check "cannot preview a certificate" 403 POST /api/certificates/preview '{"studentIds":[1],"conferredOn":"2026-10-30"}'
 check "cannot read teacher sign-ins" 403 GET /api/teachers/1/login
 check "cannot reset a teacher password" 403 POST /api/teachers/1/login/reset '{}'
+photo_url_get "student picture visible to a student" "$SHARED_PHOTO" 200
+photo_upload "student cannot set another picture" "/api/students/$ENROLL_ID/photo" target/smoke/one.png 403
+check "cannot remove another picture" 403 DELETE "/api/students/$ENROLL_ID/photo"
 
 echo
 echo "== access control without a session =="

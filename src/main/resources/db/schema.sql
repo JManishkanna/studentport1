@@ -116,9 +116,25 @@ CREATE TABLE IF NOT EXISTS profile_photos (
     user_id      BIGINT      NOT NULL PRIMARY KEY,
     content_type VARCHAR(40) NOT NULL,
     bytes        LONGBLOB    NOT NULL,
-    updated_at   TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
     CONSTRAINT fk_photo_user FOREIGN KEY (user_id) REFERENCES app_users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- The cache-busting token in a photo URL carries milliseconds. Databases created before the
+-- column had sub-second precision get widened once, otherwise a fresh upload and the next
+-- page load disagree on the version.
+SET @add_photo_millis = (
+    SELECT IF(DATETIME_PRECISION = 0 OR DATETIME_PRECISION IS NULL,
+              'ALTER TABLE profile_photos MODIFY COLUMN updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)',
+              'DO 0')
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'profile_photos'
+      AND COLUMN_NAME = 'updated_at'
+);
+PREPARE add_photo_millis FROM @add_photo_millis;
+EXECUTE add_photo_millis;
+DEALLOCATE PREPARE add_photo_millis;
 
 -- MySQL 8 has no ADD COLUMN IF NOT EXISTS, so look the column up and prepare the ALTER only
 -- on databases that predate it. Accounts that existed before this migration were seeded with

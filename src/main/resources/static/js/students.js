@@ -1,5 +1,5 @@
 (() => {
-    const { esc, get, post, put, del, statusBadge, initials, recordForm, confirmDialog, toast, queryParam } = Portal;
+    const { esc, get, post, put, del, statusBadge, avatar, recordForm, confirmDialog, toast, queryParam } = Portal;
     const content = document.getElementById('content');
 
     const state = {
@@ -145,7 +145,7 @@
                             <tr class="clickable" data-id="${s.id}" data-roll="${esc(s.rollNumber)}">
                                 <td>
                                     <div class="person">
-                                        <div class="avatar-lg" style="width:36px;height:36px;border-radius:11px;font-size:.85rem">${esc(initials(`${s.firstName} ${s.lastName}`))}</div>
+                                        ${avatar(s.photoUrl, `${s.firstName} ${s.lastName}`, 'avatar-xs')}
                                         <div>
                                             <div class="cell-strong">${esc(s.firstName)} ${esc(s.lastName)}</div>
                                             <div class="cell-sub">${esc(s.email)}</div>

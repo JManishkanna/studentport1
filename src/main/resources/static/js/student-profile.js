@@ -1,5 +1,5 @@
 (() => {
-    const { esc, get, post, put, del, statusBadge, initials, formatDate, formatTime, dayName, age, recordForm, toast, queryParam } = Portal;
+    const { esc, get, post, put, del, upload, statusBadge, avatar, formatDate, formatTime, dayName, age, recordForm, confirmDialog, toast, queryParam } = Portal;
     const content = document.getElementById('content');
 
     const STATUSES = [
@@ -46,7 +46,7 @@
             <section class="card">
                 <div class="card-body">
                     <div class="person">
-                        <div class="avatar-lg">${esc(initials(`${student.firstName} ${student.lastName}`))}</div>
+                        ${avatar(student.photoUrl, `${student.firstName} ${student.lastName}`)}
                         <div>
                             <h2>${esc(student.firstName)} ${esc(student.lastName)}</h2>
                             <div class="meta">
@@ -56,7 +56,10 @@
                         </div>
                         <div style="margin-left:auto" class="chip-row">
                             ${statusBadge(student.status)}
-                            ${canAdmin ? '<button class="btn btn-ghost btn-sm" id="edit">Edit profile</button>' : ''}
+                            ${canAdmin ? `<input id="photo-file" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+                                <button class="btn btn-ghost btn-sm" id="photo-pick">Change photo</button>
+                                <button class="btn btn-ghost btn-sm" id="photo-remove"${student.photoUrl ? '' : ' disabled'}>Remove photo</button>
+                                <button class="btn btn-ghost btn-sm" id="edit">Edit profile</button>` : ''}
                         </div>
                     </div>
                 </div>
@@ -159,6 +162,8 @@
         const edit = document.getElementById('edit');
         if (edit) edit.addEventListener('click', () => openEdit(student));
 
+        if (canAdmin) bindPhoto(student);
+
         const enroll = document.getElementById('enroll');
         if (enroll) enroll.addEventListener('click', () => openEnroll(student));
 
@@ -180,6 +185,39 @@
     async function reload() {
         content.innerHTML = '<div class="skeleton"><span class="spinner"></span> Reloading…</div>';
         await load();
+    }
+
+    /** Admins manage the picture on the student's sign-in; the student can also change it themselves. */
+    function bindPhoto(student) {
+        const file = document.getElementById('photo-file');
+        document.getElementById('photo-pick').addEventListener('click', () => file.click());
+        file.addEventListener('change', async () => {
+            if (!file.files[0]) return;
+            const form = new FormData();
+            form.append('file', file.files[0]);
+            try {
+                await upload(`api/students/${student.id}/photo`, form);
+                toast('Profile picture updated');
+                await reload();
+            } catch (error) {
+                toast(error.message, 'err');
+            }
+        });
+        document.getElementById('photo-remove').addEventListener('click', async () => {
+            const ok = await confirmDialog({
+                title: 'Remove this picture?',
+                message: 'Their initials will show in its place until another picture is uploaded.',
+                confirmLabel: 'Remove',
+            });
+            if (!ok) return;
+            try {
+                await del(`api/students/${student.id}/photo`);
+                toast('Profile picture removed');
+                await reload();
+            } catch (error) {
+                toast(error.message, 'err');
+            }
+        });
     }
 
     async function openEdit(student) {

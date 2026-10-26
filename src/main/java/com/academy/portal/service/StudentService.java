@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class StudentService {
@@ -29,17 +30,20 @@ public class StudentService {
     private final SubjectRepository subjectRepository;
     private final ClassScheduleRepository scheduleRepository;
     private final LinkedAccountService accountService;
+    private final ProfilePhotoService photoService;
 
     public StudentService(StudentRepository studentRepository,
                           EnrollmentRepository enrollmentRepository,
                           SubjectRepository subjectRepository,
                           ClassScheduleRepository scheduleRepository,
-                          LinkedAccountService accountService) {
+                          LinkedAccountService accountService,
+                          ProfilePhotoService photoService) {
         this.studentRepository = studentRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.subjectRepository = subjectRepository;
         this.scheduleRepository = scheduleRepository;
         this.accountService = accountService;
+        this.photoService = photoService;
     }
 
     @Transactional(readOnly = true)
@@ -174,6 +178,20 @@ public class StudentService {
                 .toList();
     }
 
+    @Transactional
+    public StudentDto setPhoto(Long studentId, MultipartFile file) {
+        Student student = load(studentId);
+        photoService.storeFor(Role.STUDENT, studentId, file);
+        return toDto(student);
+    }
+
+    @Transactional
+    public StudentDto clearPhoto(Long studentId) {
+        Student student = load(studentId);
+        photoService.removeFor(Role.STUDENT, studentId);
+        return toDto(student);
+    }
+
     @Transactional(readOnly = true)
     public AccountLoginDto loginInfo(Long studentId) {
         Student student = load(studentId);
@@ -239,6 +257,7 @@ public class StudentService {
         return new StudentDto(s.getId(), s.getRollNumber(), s.getFirstName(), s.getLastName(), s.getEmail(),
                 s.getPhone(), s.getDateOfBirth(), s.getGender(), s.getClassLevel(), s.getSection(),
                 s.getAddressLine(), s.getCity(), s.getGuardianName(), s.getGuardianPhone(), s.getGuardianEmail(),
-                s.getAdmissionDate(), s.getStatus());
+                s.getAdmissionDate(), s.getStatus(),
+                photoService.urlForPerson(Role.STUDENT, s.getId()).orElse(null));
     }
 }

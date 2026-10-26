@@ -16,7 +16,8 @@ public record PersonContactDto(
         String email,
         String detail,
         String group,
-        String division) {
+        String division,
+        String photoUrl) {
 
     public static final String FACULTY = "FACULTY";
     public static final String STUDENT = "STUDENT";

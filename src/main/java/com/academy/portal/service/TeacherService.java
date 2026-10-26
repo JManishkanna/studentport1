@@ -10,16 +10,21 @@ import java.time.LocalDate;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class TeacherService {
 
     private final TeacherRepository teacherRepository;
     private final LinkedAccountService accountService;
+    private final ProfilePhotoService photoService;
 
-    public TeacherService(TeacherRepository teacherRepository, LinkedAccountService accountService) {
+    public TeacherService(TeacherRepository teacherRepository,
+                          LinkedAccountService accountService,
+                          ProfilePhotoService photoService) {
         this.teacherRepository = teacherRepository;
         this.accountService = accountService;
+        this.photoService = photoService;
     }
 
     @Transactional(readOnly = true)
@@ -83,6 +88,20 @@ public class TeacherService {
         teacherRepository.delete(teacher);
     }
 
+    @Transactional
+    public TeacherDto setPhoto(Long teacherId, MultipartFile file) {
+        Teacher teacher = load(teacherId);
+        photoService.storeFor(Role.TEACHER, teacherId, file);
+        return toDto(teacher);
+    }
+
+    @Transactional
+    public TeacherDto clearPhoto(Long teacherId) {
+        Teacher teacher = load(teacherId);
+        photoService.removeFor(Role.TEACHER, teacherId);
+        return toDto(teacher);
+    }
+
     @Transactional(readOnly = true)
     public AccountLoginDto loginInfo(Long teacherId) {
         Teacher teacher = load(teacherId);
@@ -133,6 +152,7 @@ public class TeacherService {
     private TeacherDto toDto(Teacher t) {
         return new TeacherDto(t.getId(), t.getEmployeeCode(), t.getFirstName(), t.getLastName(),
                 t.getDesignation(), t.getDepartment(), t.getEmail(), t.getPhone(), t.getSpecialization(),
-                t.getQualification(), t.getOfficeRoom(), t.getJoiningDate(), t.getStatus());
+                t.getQualification(), t.getOfficeRoom(), t.getJoiningDate(), t.getStatus(),
+                photoService.urlForPerson(Role.TEACHER, t.getId()).orElse(null));
     }
 }

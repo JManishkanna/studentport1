@@ -121,9 +121,9 @@ Both write a fresh hash and update the flag.
 | Sign in | `static/login.html` | Session login, CSRF-aware; takes a username, a student email or a teacher email |
 | Dashboard | `static/index.html` | Role-aware overview: academy stats and today's classes, or a student's own day |
 | Students | `static/students.html` | Search / filter roster, admit, edit, manage the student's sign-in, remove (admin) |
-| Student profile | `static/student-profile.html` | Profile, guardian + contact details, weekly timetable, enrolled subjects, classmates |
-| Teachers | `static/teachers.html` | Faculty directory cards with contact details; admin adds, edits, manages sign-ins, removes |
-| Teacher profile | `static/teacher-profile.html` | Contact info, qualifications, weekly timetable, subjects and classes taught |
+| Student profile | `static/student-profile.html` | Profile, guardian + contact details, weekly timetable, enrolled subjects, classmates; admins change the picture here |
+| Teachers | `static/teachers.html` | Faculty directory cards with contact details and pictures; admin adds, edits, manages sign-ins, removes |
+| Teacher profile | `static/teacher-profile.html` | Contact info, qualifications, weekly timetable, subjects and classes taught; admins change the picture here |
 | Timetable | `static/schedule.html` | Week grid with class/section/teacher/subject filters; admin builds sessions |
 | Contacts | `static/contacts.html` | Role-scoped people directory (see below) plus department desks and helplines grouped by category |
 | Certificates | `static/certificates.html` | ADMIN only: tick one or many graduates, preview the wording, then download the certificate PDFs |
@@ -141,6 +141,7 @@ from `GET /api/auth/csrf`).
 | `POST` | `/api/auth/password` (`{currentPassword,newPassword}`) | any signed-in user |
 | `GET` | `/api/profile/photo/{userId}` → the image bytes | any signed-in user |
 | `POST` `DELETE` | `/api/profile/photo` (multipart `file`) | any signed-in user, own picture |
+| `POST` `DELETE` | `/api/students/{id}/photo` · `/api/teachers/{id}/photo` (multipart `file`) | ADMIN |
 | `GET` | `/api/dashboard` | any signed-in user |
 | `GET` | `/api/students?q=&classLevel=&status=` | ADMIN, TEACHER |
 | `GET` | `/api/students/{id}` · `/{id}/schedule` · `/{id}/subjects` · `/{id}/classmates` | ADMIN, TEACHER |
@@ -194,6 +195,22 @@ with `400`. `GET /api/profile/photo/{userId}` answers with the stored bytes and 
 picture. Every `/api/auth/me` answer carries a versioned `photoUrl` (or `null`), so a replaced
 picture bypasses the browser cache and the sidebar updates without a reload. Upload and removal live
 on **Account settings**, which every role can open.
+
+A student's or teacher's picture is stored on their sign-in row, so their record carries it too:
+`StudentDto`, `TeacherDto` and the `/api/contacts/people` rows each expose a `photoUrl`. The roster,
+faculty cards, contact lists and both profile pages render it for every signed-in role, with
+initials filling in where no picture exists. Administrators manage it from either profile page with
+**Change photo** / **Remove photo**:
+
+| Method | Path | Access |
+| --- | --- | --- |
+| `POST` | `/api/students/{id}/photo` (multipart `file`) | ADMIN |
+| `DELETE` | `/api/students/{id}/photo` | ADMIN |
+| `POST` | `/api/teachers/{id}/photo` (multipart `file`) | ADMIN |
+| `DELETE` | `/api/teachers/{id}/photo` | ADMIN |
+
+Every upload and removal answers with the updated record. A person with no sign-in row has nowhere
+to keep a picture; each student and teacher is given one when they are admitted or added.
 
 ### Who the contacts page shows
 
@@ -254,6 +271,8 @@ Business rules enforced in the service layer, not just the UI:
 - A student's or teacher's sign-in is opened, renamed and removed with the record. It starts on the
   academy default password; changing it from **Account settings** clears `password_is_default`, and
   only the hash is kept from then on.
+- A picture is attached to that sign-in, so it is deleted with it. Pictures are readable by every
+  signed-in role; setting or clearing one for a student or teacher is ADMIN only.
 - Students cannot read another student's record: `/api/students/{id}` is ADMIN/TEACHER only, and
   self-service always resolves the id from the session, never from the request.
 

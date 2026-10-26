@@ -1,6 +1,9 @@
 package com.academy.portal.service;
 
+import com.academy.portal.domain.AppUser;
 import com.academy.portal.domain.ProfilePhoto;
+import com.academy.portal.domain.Role;
+import com.academy.portal.repository.AppUserRepository;
 import com.academy.portal.repository.ProfilePhotoRepository;
 import java.io.IOException;
 import java.time.Instant;
@@ -15,9 +18,11 @@ public class ProfilePhotoService {
     private static final long MAX_BYTES = 2L * 1024 * 1024;
 
     private final ProfilePhotoRepository photoRepository;
+    private final AppUserRepository userRepository;
 
-    public ProfilePhotoService(ProfilePhotoRepository photoRepository) {
+    public ProfilePhotoService(ProfilePhotoRepository photoRepository, AppUserRepository userRepository) {
         this.photoRepository = photoRepository;
+        this.userRepository = userRepository;
     }
 
     @Transactional(readOnly = true)
@@ -30,6 +35,25 @@ public class ProfilePhotoService {
     public Optional<String> urlFor(Long userId) {
         return photoRepository.findById(userId)
                 .map(photo -> "api/profile/photo/" + userId + "?v=" + photo.getUpdatedAt().toEpochMilli());
+    }
+
+    /** The picture shown beside a student or teacher record, wherever that person is listed. */
+    @Transactional(readOnly = true)
+    public Optional<String> urlForPerson(Role role, Long linkedId) {
+        return accountId(role, linkedId).flatMap(this::urlFor);
+    }
+
+    @Transactional
+    public void storeFor(Role role, Long linkedId, MultipartFile file) {
+        String label = role == Role.STUDENT ? "student" : "teacher";
+        Long userId = accountId(role, linkedId)
+                .orElseThrow(() -> new NotFoundException("No sign-in exists for this " + label + " yet"));
+        store(userId, file);
+    }
+
+    @Transactional
+    public void removeFor(Role role, Long linkedId) {
+        accountId(role, linkedId).ifPresent(this::remove);
     }
 
     @Transactional
@@ -65,6 +89,13 @@ public class ProfilePhotoService {
     @Transactional
     public void remove(Long userId) {
         photoRepository.findById(userId).ifPresent(photoRepository::delete);
+    }
+
+    private Optional<Long> accountId(Role role, Long linkedId) {
+        Optional<AppUser> user = role == Role.STUDENT
+                ? userRepository.findFirstByStudentId(linkedId)
+                : userRepository.findFirstByTeacherId(linkedId);
+        return user.map(AppUser::getId);
     }
 
     /** Trusts the bytes, not the browser-supplied part headers, so an HTML payload is refused. */

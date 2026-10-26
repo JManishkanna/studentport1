@@ -25,7 +25,8 @@ public record StudentDto(
         @Email @Size(max = 120) String guardianEmail,
         LocalDate admissionDate,
         @Pattern(regexp = "^(ACTIVE|SUSPENDED|ALUMNI)$", message = "must be ACTIVE, SUSPENDED or ALUMNI")
-        String status) {
+        String status,
+        String photoUrl) {
 
     public String fullName() {
         return (firstName + " " + lastName).trim();

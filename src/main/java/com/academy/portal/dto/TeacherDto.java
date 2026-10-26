@@ -21,7 +21,8 @@ public record TeacherDto(
         @Size(max = 40) String officeRoom,
         LocalDate joiningDate,
         @Pattern(regexp = "^(ACTIVE|ON_LEAVE|INACTIVE)$", message = "must be ACTIVE, ON_LEAVE or INACTIVE")
-        String status) {
+        String status,
+        String photoUrl) {
 
     public String fullName() {
         return (firstName + " " + lastName).trim();
