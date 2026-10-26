@@ -103,9 +103,10 @@ public class ContactService {
                 .filter(AppUser::isEnabled)
                 .filter(admin -> admin.getEmail() != null && !admin.getEmail().isBlank())
                 .sorted(Comparator.comparing(AppUser::getFullName))
+                // The mailbox has no programme, so it never appears under a programme filter.
                 .forEach(admin -> people.add(new PersonContactDto(admin.getId(), PersonContactDto.ADMINISTRATION,
                         admin.getFullName(), admin.getUsername(), null, null, admin.getEmail(),
-                        "Academy administration")));
+                        "Academy administration", null, null)));
         return people;
     }
 
@@ -119,7 +120,8 @@ public class ContactService {
                             : String.join(", ", subjectsByTeacher.getOrDefault(teacher.getId(), Set.of()));
                     return new PersonContactDto(teacher.getId(), PersonContactDto.FACULTY,
                             fullName(teacher.getFirstName(), teacher.getLastName()),
-                            teacher.getEmployeeCode(), teacher.getPhone(), null, teacher.getEmail(), detail);
+                            teacher.getEmployeeCode(), teacher.getPhone(), null, teacher.getEmail(), detail,
+                            teacher.getDepartment(), null);
                 })
                 .toList();
     }
@@ -128,7 +130,8 @@ public class ContactService {
         return new PersonContactDto(student.getId(), PersonContactDto.STUDENT,
                 fullName(student.getFirstName(), student.getLastName()),
                 student.getRollNumber(), student.getPhone(), student.getGuardianPhone(), student.getEmail(),
-                student.getClassLevel() + " - Section " + student.getSection());
+                student.getClassLevel() + " - Section " + student.getSection(),
+                student.getClassLevel(), "Section " + student.getSection());
     }
 
     private static String fullName(String firstName, String lastName) {

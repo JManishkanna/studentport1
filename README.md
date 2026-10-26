@@ -143,6 +143,19 @@ cannot widen it:
 The manually maintained desk rows (`/api/contacts`) stay below that list for every role and are
 editable by ADMIN only.
 
+Controls above the list, all applied in the browser to whatever the session is allowed to see:
+
+- **Search** — matches name, roll or staff number, phone, guardian number, email, programme, class
+  division, desk name, department, location and opening hours
+- **Sort by** — programme then name (default), name A–Z, name Z–A, roll / staff number, phone number
+- **Show** — Everyone, Subject faculty, Students, Administration, Office desks
+- **Programme** and **Class division** — only rendered when the scoped list actually holds more than
+  one of them, so a student with a single track sees neither
+- **Desk category** chips — filtered server-side through `/api/contacts?category=`
+- **Clear** — resets search, chips, selects and sorting
+
+The header subtitle reports `12 of 26 contact(s) match the current filters` while anything is active.
+
 Quick check from the shell:
 
 ```bash

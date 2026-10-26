@@ -14,7 +14,9 @@ public record PersonContactDto(
         String phone,
         String alternatePhone,
         String email,
-        String detail) {
+        String detail,
+        String group,
+        String division) {
 
     public static final String FACULTY = "FACULTY";
     public static final String STUDENT = "STUDENT";
