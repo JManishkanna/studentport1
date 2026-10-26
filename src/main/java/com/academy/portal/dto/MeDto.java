@@ -9,10 +9,12 @@ public record MeDto(
         String fullName,
         Role role,
         Long studentId,
-        Long teacherId) {
+        Long teacherId,
+        String photoUrl,
+        boolean passwordIsDefault) {
 
-    public static MeDto from(AppUser user) {
+    public static MeDto from(AppUser user, String photoUrl) {
         return new MeDto(user.getId(), user.getUsername(), user.getFullName(), user.getRole(),
-                user.getStudentId(), user.getTeacherId());
+                user.getStudentId(), user.getTeacherId(), photoUrl, user.isPasswordIsDefault());
     }
 }

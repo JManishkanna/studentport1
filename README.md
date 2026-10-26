@@ -43,7 +43,8 @@ export MYSQL_PASSWORD=your-password
 The JDBC URL uses `createDatabaseIfNotExist=true`, so the schema is created for you on first boot.
 On every start the app also runs:
 
-- `src/main/resources/db/schema.sql` — `CREATE TABLE IF NOT EXISTS` for all seven tables
+- `src/main/resources/db/schema.sql` — `CREATE TABLE IF NOT EXISTS` for all eight tables, plus a
+  guarded `ALTER TABLE` that adds `app_users.password_is_default` to databases created before it
 - `src/main/resources/db/data.sql` — demo students, faculty, subjects, timetable slots and contacts
   (`INSERT IGNORE`, so restarting never duplicates rows)
 
@@ -88,24 +89,44 @@ Created automatically on first boot by `UserSeeder` (BCrypt-hashed; disable with
 | --- | --- | --- | --- |
 | `admin` | `admin123` | ADMIN | Everything, plus create/edit/delete |
 | `teacher` | `teacher123` | TEACHER | Student directory, all timetables, own profile |
-| `student` | `student123` | STUDENT | Own profile, own timetable, own subjects only |
+| any student email, e.g. `aarav.menon@student.academy.edu` | `PASSWORD` | STUDENT | Own profile, own timetable, own subjects only |
 
-**Change these before deploying anywhere real.** The student account is linked to roll `ACAD-1101`
-(Aarav Menon) and the teacher account to `ACAD-T-001` (Suresh Babu).
+**Change these before deploying anywhere real.** The teacher account is linked to `ACAD-T-001`
+(Suresh Babu).
+
+### Student sign-ins
+
+Every student row gets a login of its own, keyed on the academy email: admitting a student opens the
+account, changing the email moves the login with it, and deleting the student removes both. The
+first password is the shared default from `portal.student.default-password` (override with
+`STUDENT_DEFAULT_PASSWORD`; it defaults to `PASSWORD`). The seeder also adopts the older single
+`student` demo login, renaming it to `aarav.menon@student.academy.edu` and resetting it to the
+default, so the hint on the sign-in page stays accurate.
+
+A one-time migration flag, `app_users.password_is_default`, records whether an account still carries
+the password the academy handed out. Students change it themselves on **Account settings** (current
+password + a new one of at least 8 characters); the flag clears, and from then on only a BCrypt hash
+exists.
+
+Administrators open a student's **Login** dialog from the register. It shows the username and either
+the default password or "chosen by the student". Because chosen passwords are only stored as hashes,
+they cannot be read back — the dialog can instead **Reset to default** (revealing the value once) or
+**Set a new password** and hand it to the student. Both write a fresh hash and update the flag.
 
 ## 5. Pages
 
 | Page | File | Purpose |
 | --- | --- | --- |
-| Sign in | `static/login.html` | Session login, CSRF-aware |
+| Sign in | `static/login.html` | Session login, CSRF-aware; takes a username or a student email |
 | Dashboard | `static/index.html` | Role-aware overview: academy stats and today's classes, or a student's own day |
-| Students | `static/students.html` | Search / filter roster, admit, edit, remove (admin) |
+| Students | `static/students.html` | Search / filter roster, admit, edit, manage the student's sign-in, remove (admin) |
 | Student profile | `static/student-profile.html` | Profile, guardian + contact details, weekly timetable, enrolled subjects, classmates |
 | Teachers | `static/teachers.html` | Faculty directory cards with contact details |
 | Teacher profile | `static/teacher-profile.html` | Contact info, qualifications, weekly timetable, subjects and classes taught |
 | Timetable | `static/schedule.html` | Week grid with class/section/teacher/subject filters; admin builds sessions |
 | Contacts | `static/contacts.html` | Role-scoped people directory (see below) plus department desks and helplines grouped by category |
 | Certificates | `static/certificates.html` | ADMIN only: tick one or many graduates, preview the wording, then download the certificate PDFs |
+| Account settings | `static/account.html` | Every role: profile picture, sign-in details and a password change |
 
 ## 6. REST API
 
@@ -116,11 +137,16 @@ from `GET /api/auth/csrf`).
 | --- | --- | --- |
 | `GET` | `/api/auth/csrf` | public |
 | `GET` | `/api/auth/me` | any signed-in user |
+| `POST` | `/api/auth/password` (`{currentPassword,newPassword}`) | any signed-in user |
+| `GET` | `/api/profile/photo/{userId}` → the image bytes | any signed-in user |
+| `POST` `DELETE` | `/api/profile/photo` (multipart `file`) | any signed-in user, own picture |
 | `GET` | `/api/dashboard` | any signed-in user |
 | `GET` | `/api/students?q=&classLevel=&status=` | ADMIN, TEACHER |
 | `GET` | `/api/students/{id}` · `/{id}/schedule` · `/{id}/subjects` · `/{id}/classmates` | ADMIN, TEACHER |
 | `GET` | `/api/students/me` · `/me/schedule` · `/me/subjects` · `/me/classmates` | signed-in student |
 | `POST` `PUT` `DELETE` | `/api/students/**`, `/api/students/{id}/subjects/{subjectId}` | ADMIN |
+| `GET` | `/api/students/{id}/login` → login id + default-password flag | ADMIN |
+| `POST` | `/api/students/{id}/login/reset` (`{password}`, or `{}` for the default) | ADMIN |
 | `GET` | `/api/teachers`, `/api/teachers/{id}`, `/api/teachers/{id}/schedule` | any signed-in user |
 | `GET` | `/api/teachers/me`, `/api/teachers/me/schedule` | signed-in teacher |
 | `POST` `PUT` `DELETE` | `/api/teachers/**` | ADMIN |
@@ -156,6 +182,15 @@ enrolled in, the conferral date and term, and two signature rules — the
 programme's Head of Department, or the first of that programme's faculty by surname when no HoD is on
 staff, beside the administrator who issued the run. A `CERT-<roll>-<yyyyMMdd>` serial line closes the
 page.
+
+### Profile pictures
+
+`POST /api/profile/photo` takes a multipart `file` — PNG, JPEG or WebP, up to 2 MB. The type is
+sniffed from the bytes rather than trusted from the part headers, so a renamed HTML file is refused
+with `400`. `GET /api/profile/photo/{userId}` answers with the stored bytes and `DELETE` clears the
+picture. Every `/api/auth/me` answer carries a versioned `photoUrl` (or `null`), so a replaced
+picture bypasses the browser cache and the sidebar updates without a reload. Upload and removal live
+on **Account settings**, which every role can open.
 
 ### Who the contacts page shows
 
@@ -201,7 +236,9 @@ subjects ──┤
 teachers ──┘
 contacts        desk directory, grouped by category; the people list is derived from
                 class_schedules + students + teachers instead of this table
-app_users       login + role, points at a student or teacher row
+app_users       login + role, points at a student or teacher row; password_is_default marks a
+                password the academy handed out
+profile_photos  one picture per app_users row, removed with the account
 ```
 
 Business rules enforced in the service layer, not just the UI:
@@ -211,6 +248,9 @@ Business rules enforced in the service layer, not just the UI:
 - No two sessions can overlap for the same class/section, and a teacher cannot be double-booked —
   the API returns `409 Conflict` with the clashing slot named.
 - Deleting a student removes their enrollments; deleting a teacher removes their sessions.
+- A student's sign-in is opened, renamed and removed with the student. It starts on the academy
+  default password; changing it from **Account settings** clears `password_is_default`, and only the
+  hash is kept from then on.
 - Students cannot read another student's record: `/api/students/{id}` is ADMIN/TEACHER only, and
   self-service always resolves the id from the session, never from the request.
 
@@ -242,4 +282,5 @@ academy-portal/
 | `Communications link failure` | MySQL service is stopped, or the port is wrong (`MYSQL_PORT`) |
 | Login posts return `403` | The CSRF cookie/header is missing — sign in through `login.html`, and make sure the app is served over `http://localhost` (cookies are scoped) |
 | Empty dashboard but app started | `db/data.sql` did not run: check the boot log for `Executing SQL script from class path resource` |
+| Profile picture upload rejected | It must be a PNG, JPEG or WebP under 2 MB — the server checks the bytes, not the file name |
 | Port 8080 busy | `SERVER_PORT=9090` (the app reads `PORT`), then open `http://localhost:9090` |

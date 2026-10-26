@@ -1,10 +1,14 @@
 package com.academy.portal.web;
 
 import com.academy.portal.dto.EnrolledSubject;
+import com.academy.portal.dto.LoginResetRequest;
 import com.academy.portal.dto.ScheduleRow;
 import com.academy.portal.dto.StudentDto;
+import com.academy.portal.dto.StudentLoginDto;
+import com.academy.portal.dto.StudentLoginReset;
 import com.academy.portal.service.BadRequestException;
 import com.academy.portal.service.CurrentUserService;
+import com.academy.portal.service.StudentAccountService;
 import com.academy.portal.service.StudentService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -25,10 +29,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class StudentController {
 
     private final StudentService studentService;
+    private final StudentAccountService studentAccountService;
     private final CurrentUserService currentUserService;
 
-    public StudentController(StudentService studentService, CurrentUserService currentUserService) {
+    public StudentController(StudentService studentService,
+                             StudentAccountService studentAccountService,
+                             CurrentUserService currentUserService) {
         this.studentService = studentService;
+        this.studentAccountService = studentAccountService;
         this.currentUserService = currentUserService;
     }
 
@@ -107,6 +115,21 @@ public class StudentController {
     public Map<String, String> delete(@PathVariable Long id) {
         studentService.delete(id);
         return Map.of("status", "deleted", "id", String.valueOf(id));
+    }
+
+    // ---- administration of a student's sign-in -----------------------------
+
+    @GetMapping("/{id}/login")
+    @PreAuthorize("hasRole('ADMIN')")
+    public StudentLoginDto login(@PathVariable Long id) {
+        return studentAccountService.loginInfo(id);
+    }
+
+    @PostMapping("/{id}/login/reset")
+    @PreAuthorize("hasRole('ADMIN')")
+    public StudentLoginReset resetLogin(@PathVariable Long id,
+                                        @RequestBody(required = false) LoginResetRequest request) {
+        return studentAccountService.reset(id, request == null ? null : request.password());
     }
 
     @PostMapping("/{id}/subjects/{subjectId}")

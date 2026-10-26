@@ -42,6 +42,10 @@ public class AppUser {
     @Column(nullable = false)
     private boolean enabled = true;
 
+    /** True while the account still carries the password the academy handed out. */
+    @Column(name = "password_is_default", nullable = false)
+    private boolean passwordIsDefault;
+
     public Long getId() {
         return id;
     }
@@ -108,5 +112,13 @@ public class AppUser {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public boolean isPasswordIsDefault() {
+        return passwordIsDefault;
+    }
+
+    public void setPasswordIsDefault(boolean passwordIsDefault) {
+        this.passwordIsDefault = passwordIsDefault;
     }
 }

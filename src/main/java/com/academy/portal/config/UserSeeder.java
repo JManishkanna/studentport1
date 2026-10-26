@@ -2,9 +2,11 @@ package com.academy.portal.config;
 
 import com.academy.portal.domain.AppUser;
 import com.academy.portal.domain.Role;
+import com.academy.portal.domain.Student;
 import com.academy.portal.repository.AppUserRepository;
 import com.academy.portal.repository.StudentRepository;
 import com.academy.portal.repository.TeacherRepository;
+import com.academy.portal.service.StudentAccountService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,8 +17,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Creates the three demo sign-in accounts. Passwords come from application.properties and are
- * stored as BCrypt hashes; the demo rows in db/data.sql do not carry credentials.
+ * Creates the administration and faculty demo accounts, then makes sure every student has a
+ * sign-in on their academy email. Passwords come from application.properties and are stored as
+ * BCrypt hashes; the demo rows in db/data.sql do not carry credentials.
  */
 @Component
 public class UserSeeder implements ApplicationRunner {
@@ -26,6 +29,7 @@ public class UserSeeder implements ApplicationRunner {
     private final AppUserRepository userRepository;
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
+    private final StudentAccountService studentAccountService;
     private final PasswordEncoder passwordEncoder;
 
     @Value("${portal.seed.users.enabled:true}")
@@ -43,19 +47,15 @@ public class UserSeeder implements ApplicationRunner {
     @Value("${portal.seed.teacher.password:teacher123}")
     private String teacherPassword;
 
-    @Value("${portal.seed.student.username:student}")
-    private String studentUsername;
-
-    @Value("${portal.seed.student.password:student123}")
-    private String studentPassword;
-
     public UserSeeder(AppUserRepository userRepository,
                       StudentRepository studentRepository,
                       TeacherRepository teacherRepository,
+                      StudentAccountService studentAccountService,
                       PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
+        this.studentAccountService = studentAccountService;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -82,14 +82,10 @@ public class UserSeeder implements ApplicationRunner {
             }
         });
 
-        studentRepository.findByRollNumberIgnoreCase("ACAD-1101").ifPresent(student -> {
-            AppUser created = createIfMissing(studentUsername, studentPassword,
-                    student.getFirstName() + " " + student.getLastName(), student.getEmail(),
-                    Role.STUDENT, student.getId(), null);
-            if (created != null) {
-                log.info("Seeded STUDENT account '{}' for {}", studentUsername, student.getEmail());
-            }
-        });
+        for (Student student : studentRepository.findAll()) {
+            studentAccountService.ensureAccount(student);
+        }
+        log.info("Student sign-ins are their academy email, on the configured default password until changed");
     }
 
     private AppUser createIfMissing(String username, String password, String fullName, String email,
@@ -100,6 +96,7 @@ public class UserSeeder implements ApplicationRunner {
         AppUser user = new AppUser();
         user.setUsername(username);
         user.setPasswordHash(passwordEncoder.encode(password));
+        user.setPasswordIsDefault(true);
         user.setFullName(fullName);
         user.setEmail(email);
         user.setRole(role);

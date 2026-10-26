@@ -18,6 +18,7 @@ const Portal = (() => {
         { key: 'me', label: 'My profile', href: 'student-profile.html?me=1', icon: '◐', roles: ['STUDENT'] },
         { key: 'me', label: 'My profile', href: 'teacher-profile.html?me=1', icon: '◐', roles: ['TEACHER'] },
         { key: 'me', label: 'My timetable', href: 'teacher-profile.html?me=1&tab=schedule', icon: '▤', roles: ['TEACHER'] },
+        { key: 'account', label: 'Account settings', href: 'account.html', icon: '⚙', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
     ];
 
     const DAYS = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -144,6 +145,10 @@ const Portal = (() => {
                    </a>`)
             .join('');
 
+        const avatar = me.photoUrl
+            ? `<img class="avatar" src="${esc(me.photoUrl)}" alt="">`
+            : `<div class="avatar">${esc(initials(me.fullName))}</div>`;
+
         sidebar.innerHTML = `
             <div class="brand">
                 <div class="brand-mark">AC</div>
@@ -155,7 +160,7 @@ const Portal = (() => {
             <nav class="nav">${links}</nav>
             <div class="sidebar-foot">
                 <div class="userchip">
-                    <div class="avatar">${esc(initials(me.fullName))}</div>
+                    ${avatar}
                     <div class="who">
                         <strong>${esc(me.fullName)}</strong>
                         <span>${esc(label(me.role))}${me.username ? ' · ' + esc(me.username) : ''}</span>
@@ -381,9 +386,44 @@ const Portal = (() => {
         return { filename, count: Number(response.headers.get('X-Certificate-Count')) || null };
     }
 
+    /** Sends a multipart form (profile pictures) and returns the JSON answer. */
+    async function upload(path, formData) {
+        const response = await fetch(path, {
+            method: 'POST',
+            headers: { [csrf.headerName]: csrf.token },
+            body: formData,
+            credentials: 'same-origin',
+        });
+
+        if (response.status === 401) {
+            window.location.href = 'login.html?expired=1';
+            throw new Error('Your session has ended. Please sign in again.');
+        }
+
+        const text = await response.text();
+        const payload = text ? parse(text) : null;
+        if (!response.ok) {
+            const fallback = response.status === 403
+                ? 'Your account is not allowed to perform that action.'
+                : `Request failed with status ${response.status}`;
+            const detail = payload && (payload.detail || payload.message) ? (payload.detail || payload.message) : fallback;
+            const error = new Error(detail);
+            error.status = response.status;
+            throw error;
+        }
+        return payload;
+    }
+
+    /** Re-reads /api/auth/me so a new picture or password state shows up without a reload. */
+    async function refreshMe() {
+        me = await json('api/auth/me');
+        return me;
+    }
+
     return {
         esc, get, post, put, del, boot, refreshCsrf, current, isAdmin, isTeacher, isStudent, label,
         initials, formatDate, formatTime, dayName, days: DAYS, age,
         mountShell, toast, recordForm, confirmDialog, statusBadge, slotCard, emptyState, queryParam, download,
+        upload, refreshMe,
     };
 })();

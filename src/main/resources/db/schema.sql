@@ -111,3 +111,26 @@ CREATE TABLE IF NOT EXISTS app_users (
     CONSTRAINT fk_app_users_student FOREIGN KEY (student_id) REFERENCES students (id) ON DELETE SET NULL,
     CONSTRAINT fk_app_users_teacher FOREIGN KEY (teacher_id) REFERENCES teachers (id) ON DELETE SET NULL
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE IF NOT EXISTS profile_photos (
+    user_id      BIGINT      NOT NULL PRIMARY KEY,
+    content_type VARCHAR(40) NOT NULL,
+    bytes        LONGBLOB    NOT NULL,
+    updated_at   TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_photo_user FOREIGN KEY (user_id) REFERENCES app_users (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- MySQL 8 has no ADD COLUMN IF NOT EXISTS, so look the column up and prepare the ALTER only
+-- on databases that predate it. Accounts that existed before this migration were seeded with
+-- the demo password, hence the 1.
+SET @add_password_flag = (
+    SELECT IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS
+                     WHERE TABLE_SCHEMA = DATABASE()
+                       AND TABLE_NAME = 'app_users'
+                       AND COLUMN_NAME = 'password_is_default'),
+              'DO 0',
+              'ALTER TABLE app_users ADD COLUMN password_is_default TINYINT(1) NOT NULL DEFAULT 1 AFTER enabled')
+);
+PREPARE add_password_flag FROM @add_password_flag;
+EXECUTE add_password_flag;
+DEALLOCATE PREPARE add_password_flag;

@@ -14,9 +14,11 @@ import org.springframework.stereotype.Service;
 public class CurrentUserService {
 
     private final AppUserRepository userRepository;
+    private final ProfilePhotoService photoService;
 
-    public CurrentUserService(AppUserRepository userRepository) {
+    public CurrentUserService(AppUserRepository userRepository, ProfilePhotoService photoService) {
         this.userRepository = userRepository;
+        this.photoService = photoService;
     }
 
     public Optional<AppUser> currentUser() {
@@ -32,7 +34,8 @@ public class CurrentUserService {
     }
 
     public MeDto me() {
-        return MeDto.from(requireCurrentUser());
+        AppUser user = requireCurrentUser();
+        return MeDto.from(user, photoService.urlFor(user.getId()).orElse(null));
     }
 
     public boolean isAdmin() {

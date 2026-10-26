@@ -264,6 +264,19 @@ dl.facts dt:last-of-type, dl.facts dd:last-of-type { border-bottom: 0; }
 .banner.warn { background: var(--amber-soft); border-color: #f2ddba; color: #8a5b12; }
 .banner.err { background: var(--rose-soft); border-color: #f6d5db; color: #a5213a; }
 
+/* ============================================================
+   Account settings and the student sign-in dialog
+   ============================================================ */
+img.avatar { object-fit: cover; }
+.photo-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.photo-frame {
+    width: 104px; height: 104px; border-radius: 26px; object-fit: cover;
+    background: linear-gradient(135deg, var(--accent-soft), var(--teal-soft));
+    color: var(--navy-700); display: grid; place-items: center;
+    font-weight: 700; font-size: 2rem; border: 1px solid var(--line); flex: 0 0 auto;
+}
+dl.facts code { background: #f2f5fa; padding: 1px 6px; border-radius: 5px; font-family: "Cascadia Mono", Consolas, monospace; font-size: .86rem; color: var(--navy-700); }
+
 .skeleton { padding: 24px; color: var(--ink-faint); font-size: .9rem; }
 .spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

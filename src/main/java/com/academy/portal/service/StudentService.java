@@ -25,15 +25,18 @@ public class StudentService {
     private final EnrollmentRepository enrollmentRepository;
     private final SubjectRepository subjectRepository;
     private final ClassScheduleRepository scheduleRepository;
+    private final StudentAccountService studentAccountService;
 
     public StudentService(StudentRepository studentRepository,
                           EnrollmentRepository enrollmentRepository,
                           SubjectRepository subjectRepository,
-                          ClassScheduleRepository scheduleRepository) {
+                          ClassScheduleRepository scheduleRepository,
+                          StudentAccountService studentAccountService) {
         this.studentRepository = studentRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.subjectRepository = subjectRepository;
         this.scheduleRepository = scheduleRepository;
+        this.studentAccountService = studentAccountService;
     }
 
     @Transactional(readOnly = true)
@@ -72,7 +75,9 @@ public class StudentService {
         }
         Student student = new Student();
         apply(student, dto);
-        return toDto(studentRepository.save(student));
+        Student saved = studentRepository.save(student);
+        studentAccountService.ensureAccount(saved);
+        return toDto(saved);
     }
 
     @Transactional
@@ -86,12 +91,15 @@ public class StudentService {
             throw new ConflictException("Email " + dto.email() + " is already registered");
         }
         apply(student, dto);
-        return toDto(studentRepository.save(student));
+        Student saved = studentRepository.save(student);
+        studentAccountService.ensureAccount(saved);
+        return toDto(saved);
     }
 
     @Transactional
     public void delete(Long id) {
         Student student = load(id);
+        studentAccountService.removeForStudent(student.getId());
         enrollmentRepository.findByStudentIdOrderByIdAsc(student.getId())
                 .forEach(enrollmentRepository::delete);
         studentRepository.delete(student);
