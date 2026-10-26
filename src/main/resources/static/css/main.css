@@ -285,6 +285,39 @@ dl.facts dt:last-of-type, dl.facts dd:last-of-type { border-bottom: 0; }
 .demo-accounts ul { margin: 0; padding-left: 18px; line-height: 1.8; }
 
 /* ============================================================
+   Certificate preview - mirrors the landscape A4 sheet the PDF draws
+   ============================================================ */
+.modal.wide { width: min(980px, 100%); }
+.cert-scroll { padding: 18px 24px 24px; display: flex; flex-direction: column; gap: 20px; }
+.cert-sheet {
+    position: relative;
+    background: #fff;
+    aspect-ratio: 1.414 / 1;
+    overflow: hidden;
+    border: 2px solid var(--navy-700);
+    outline: 1px solid var(--navy-700);
+    outline-offset: 5px;
+    box-shadow: var(--shadow);
+    padding: 4.5% 6% 3.5%;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    font-family: "Times New Roman", Times, serif;
+    color: var(--navy-700);
+}
+.cert-sheet .academy { font-size: .72rem; font-weight: 700; letter-spacing: .18em; color: var(--ink-soft); }
+.cert-sheet .heading { font-size: 1.75rem; font-weight: 700; letter-spacing: .03em; margin: 6px 0 0; }
+.cert-sheet .certify { font-size: .84rem; font-style: italic; color: var(--ink-soft); margin: 12px 0 4px; }
+.cert-sheet .graduate { font-size: 1.95rem; font-weight: 700; }
+.cert-sheet .roll { font-size: .76rem; color: var(--ink-soft); margin: 2px 0 16px; }
+.cert-sheet .statement { font-size: .86rem; max-width: 78%; margin: 0 0 14px; }
+.cert-sheet .subjects { font-size: 1rem; font-weight: 700; margin: 0 0 4px; }
+.cert-sheet .when { font-size: .76rem; color: var(--ink-soft); margin-bottom: auto; }
+.cert-sheet .sign { display: grid; grid-template-columns: 1fr 1fr; gap: 8%; width: 84%; margin: 12px 0 10px; }
+.cert-sheet .sign > div { border-top: 1px solid var(--navy-700); padding-top: 6px; text-align: left; }
+.cert-sheet .sign strong { display: block; font-size: .84rem; }
+.cert-sheet .sign span { font-size: .72rem; color: var(--ink-soft); }
+.cert-sheet .serial { font-size: .68rem; color: var(--ink-soft); }
+
+/* ============================================================
    Responsive
    ============================================================ */
 @media (max-width: 1080px) {

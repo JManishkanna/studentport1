@@ -1,6 +1,7 @@
 package com.academy.portal.web;
 
 import com.academy.portal.dto.CertificatePdf;
+import com.academy.portal.dto.CertificatePreviewDto;
 import com.academy.portal.dto.CertificateRequest;
 import com.academy.portal.service.CertificateService;
 import jakarta.validation.Valid;
@@ -33,5 +34,12 @@ public class CertificateController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.filename() + "\"")
                 .header("X-Certificate-Count", String.valueOf(file.students()))
                 .body(file.content());
+    }
+
+    /** The same pages as text, so the wording can be read before a PDF is drawn. */
+    @PostMapping("/preview")
+    @PreAuthorize("hasRole('ADMIN')")
+    public CertificatePreviewDto preview(@Valid @RequestBody CertificateRequest request) {
+        return certificateService.preview(request);
     }
 }

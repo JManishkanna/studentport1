@@ -105,7 +105,7 @@ Created automatically on first boot by `UserSeeder` (BCrypt-hashed; disable with
 | Teacher profile | `static/teacher-profile.html` | Contact info, qualifications, weekly timetable, subjects and classes taught |
 | Timetable | `static/schedule.html` | Week grid with class/section/teacher/subject filters; admin builds sessions |
 | Contacts | `static/contacts.html` | Role-scoped people directory (see below) plus department desks and helplines grouped by category |
-| Certificates | `static/certificates.html` | ADMIN only: tick one or many graduates and download the certificate PDFs |
+| Certificates | `static/certificates.html` | ADMIN only: tick one or many graduates, preview the wording, then download the certificate PDFs |
 
 ## 6. REST API
 
@@ -131,6 +131,7 @@ from `GET /api/auth/csrf`).
 | `GET` | `/api/contacts/people` | any signed-in user, scoped to their own classes |
 | `POST` `PUT` `DELETE` | `/api/contacts/**` | ADMIN |
 | `POST` | `/api/certificates` → `application/pdf` | ADMIN |
+| `POST` | `/api/certificates/preview` → the same pages as JSON | ADMIN |
 
 ### Graduation certificates
 
@@ -141,6 +142,13 @@ only caller: search or filter the register, tick students (or **All listed**), s
 and term, then **Generate certificates**. A row's **Certify only** button issues a single certificate
 for that student. Selections are held by id, so filtering the list never drops a pick, and one run
 covers up to 200 graduates.
+
+`POST /api/certificates/preview` takes the same body and returns the same pages as JSON instead of a
+PDF. **Preview first** opens them as certificate sheets in a dialog, and a row's **Preview** shows
+just that graduate without touching the selection, so the wording can be read before anything is
+saved. The dialog's **Generate** button runs the download for the same selection. Because both
+answers come from the one `CertificatePageDto` the PDF is drawn from, the preview cannot drift from
+the file.
 
 Each page prints the academy name from `portal.certificate.academy-name` (override with
 `CERTIFICATE_ACADEMY_NAME`), the graduate's roll number and programme, the subjects they were

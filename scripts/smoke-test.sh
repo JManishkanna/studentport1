@@ -152,6 +152,14 @@ check "certificate without a date" 400 POST /api/certificates '{"studentIds":[1]
 check "certificate with no student" 400 POST /api/certificates '{"studentIds":[],"conferredOn":"2026-10-30"}'
 check "certificate for a ghost" 404 POST /api/certificates '{"studentIds":[999999],"conferredOn":"2026-10-30"}'
 
+check "certificate preview" 200 POST /api/certificates/preview '{"studentIds":[1,9],"conferredOn":"2026-10-30","term":"2026-ODD"}'
+expect_in "preview carries the heading" '"heading":"CERTIFICATE OF GRADUATION"'
+expect_in "preview carries each graduate" 'Roll number ACAD-1101'
+expect_in "preview names the signing faculty" 'Kavita Anand'
+expect_out "preview leaves out the class division" 'Section '
+expect_out "preview leaves out the credit total" 'credits'
+check "preview with no student" 400 POST /api/certificates/preview '{"studentIds":[],"conferredOn":"2026-10-30"}'
+
 echo
 echo "== teacher =="
 JAR=$(mktemp)
@@ -175,6 +183,7 @@ check "cannot edit session" 403 PUT "/api/schedules/1" "$GOOD"
 check "cannot add contact" 403 POST /api/contacts "$CONTACT"
 check "cannot delete student" 403 DELETE "/api/students/$ENROLL_ID"
 check "cannot issue certificates" 403 POST /api/certificates '{"studentIds":[1],"conferredOn":"2026-10-30"}'
+check "cannot preview certificates" 403 POST /api/certificates/preview '{"studentIds":[1],"conferredOn":"2026-10-30"}'
 
 echo
 echo "== student =="
@@ -200,6 +209,7 @@ check "cannot read other schedule" 403 GET /api/students/2/schedule
 check "cannot edit own record" 403 PUT /api/students/1 "$STUDENT"
 check "cannot add teacher" 403 POST /api/teachers '{"employeeCode":"X","firstName":"a","lastName":"b","department":"c","email":"x@y.edu"}'
 check "cannot issue a certificate" 403 POST /api/certificates '{"studentIds":[1],"conferredOn":"2026-10-30"}'
+check "cannot preview a certificate" 403 POST /api/certificates/preview '{"studentIds":[1],"conferredOn":"2026-10-30"}'
 
 echo
 echo "== access control without a session =="
@@ -208,6 +218,7 @@ check "dashboard needs login" 401 GET /api/dashboard
 check "students need login" 401 GET /api/students
 check "people list needs login" 401 GET /api/contacts/people
 check "certificates need login" 401 POST /api/certificates '{"studentIds":[1],"conferredOn":"2026-10-30"}'
+check "preview needs login" 401 POST /api/certificates/preview '{"studentIds":[1],"conferredOn":"2026-10-30"}'
 check "portal page redirects" 302 GET /index.html
 check "sign-in page is public" 200 GET /login.html
 

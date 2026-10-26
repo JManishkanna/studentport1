@@ -1,5 +1,5 @@
 (() => {
-    const { esc, get, download, toast, statusBadge, emptyState, queryParam } = Portal;
+    const { esc, get, post, download, toast, statusBadge, emptyState, queryParam } = Portal;
     const content = document.getElementById('content');
 
     const state = {
@@ -94,7 +94,7 @@
         wrap.className = 'card';
         wrap.id = 'run';
         const chosen = state.students.filter(s => state.picked.has(s.id));
-        const preview = chosen.slice(0, 3).map(nameOf).join(', ');
+        const previewNames = chosen.slice(0, 3).map(nameOf).join(', ');
         const label = chosen.length === 1 ? 'certificate' : 'certificates';
         wrap.innerHTML = `
             <div class="card-head">
@@ -113,12 +113,15 @@
                     </div>
                     <div class="field">
                         <label>&nbsp;</label>
-                        <button class="btn btn-primary" id="issue" ${chosen.length ? '' : 'disabled'}>Generate ${esc(label)} (PDF)</button>
+                        <div class="chip-row">
+                            <button class="btn btn-ghost" id="preview" ${chosen.length ? '' : 'disabled'}>Preview first</button>
+                            <button class="btn btn-primary" id="issue" ${chosen.length ? '' : 'disabled'}>Generate ${esc(label)} (PDF)</button>
+                        </div>
                     </div>
                 </div>
                 <p class="cell-sub" style="margin:12px 0 0">
                     ${chosen.length
-    ? `${esc(preview)}${chosen.length > 3 ? ` and ${chosen.length - 3} more` : ''} - one landscape A4 page per graduate.`
+    ? `${esc(previewNames)}${chosen.length > 3 ? ` and ${chosen.length - 3} more` : ''} - one landscape A4 page per graduate.`
     : 'Tick students in the register below to add them to this run.'}
                 </p>
             </div>`;
@@ -130,7 +133,8 @@
 
         wrap.querySelector('#frun-date').addEventListener('change', (event) => { state.conferredOn = event.target.value; });
         wrap.querySelector('#frun-term').addEventListener('input', (event) => { state.term = event.target.value; });
-        wrap.querySelector('#issue').addEventListener('click', issue);
+        wrap.querySelector('#preview').addEventListener('click', () => preview([...state.picked]));
+        wrap.querySelector('#issue').addEventListener('click', () => issue());
     }
 
     function renderRoster() {
@@ -169,7 +173,10 @@
                                 <td>${esc(s.classLevel || '—')}</td>
                                 <td>${esc(s.section || '—')}</td>
                                 <td>${statusBadge(s.status)}</td>
-                                <td class="num"><button class="btn btn-ghost btn-sm" data-solo="${s.id}">Certify only</button></td>
+                                <td class="num">
+                                    <button class="btn btn-ghost btn-sm" data-preview="${s.id}">Preview</button>
+                                    <button class="btn btn-ghost btn-sm" data-solo="${s.id}">Certify only</button>
+                                </td>
                             </tr>`).join('')}
                     </tbody>
                 </table>
@@ -191,6 +198,9 @@
             renderRunCard();
             wrap.querySelector('#hdr-all').checked = visible().every(s => state.picked.has(s.id));
         }));
+        wrap.querySelectorAll('[data-preview]').forEach(button => button.addEventListener('click', () => {
+            preview([Number(button.dataset.preview)]);
+        }));
         wrap.querySelectorAll('[data-solo]').forEach(button => button.addEventListener('click', () => {
             state.picked = new Set([Number(button.dataset.solo)]);
             renderRoster();
@@ -199,21 +209,94 @@
         }));
     }
 
+    const ready = (ids) => {
+        if (!ids.length) {
+            toast('Pick at least one student first.', 'err');
+            return false;
+        }
+        if (!state.conferredOn) {
+            toast('The conferral date is required.', 'err');
+            return false;
+        }
+        return true;
+    };
+
+    const payload = (ids) => ({
+        studentIds: ids,
+        conferredOn: state.conferredOn,
+        term: state.term.trim() || null,
+    });
+
+    /** Shows the exact wording the PDF will carry, without saving anything. */
+    async function preview(ids) {
+        if (!ready(ids)) return;
+        let view;
+        try {
+            view = await post('api/certificates/preview', payload(ids));
+        } catch (error) {
+            toast(error.message, 'err');
+            return;
+        }
+        showPreview(view);
+    }
+
+    function showPreview(view) {
+        const backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop';
+        backdrop.innerHTML = `
+            <div class="modal wide" role="dialog" aria-modal="true" aria-label="Certificate preview">
+                <header>
+                    <h3>Certificate preview</h3>
+                    <p>${view.pages.length} page(s), worded exactly as the download - nothing is saved yet.</p>
+                    <div class="modal-actions" style="margin-top:14px">
+                        <button type="button" class="btn btn-ghost" data-close>Close</button>
+                        <button type="button" class="btn btn-primary" data-issue>Generate ${view.pages.length === 1 ? 'certificate' : 'certificates'} (PDF)</button>
+                    </div>
+                </header>
+                <div class="cert-scroll">${view.pages.map(page => sheet(view, page)).join('')}</div>
+            </div>`;
+        document.body.appendChild(backdrop);
+
+        const onKey = (event) => { if (event.key === 'Escape') { backdrop.remove(); document.removeEventListener('keydown', onKey); } };
+        const close = () => { backdrop.remove(); document.removeEventListener('keydown', onKey); };
+        document.addEventListener('keydown', onKey);
+        backdrop.addEventListener('click', (event) => {
+            if (event.target === backdrop || event.target.hasAttribute('data-close')) close();
+        });
+        backdrop.querySelector('[data-issue]').addEventListener('click', () => {
+            close();
+            issue();
+        });
+    }
+
+    function sheet(view, page) {
+        return `
+            <article class="cert-sheet">
+                <div class="academy">${esc(page.academyName)}</div>
+                <div class="heading">${esc(view.heading)}</div>
+                <div class="certify">${esc(view.certifyLine)}</div>
+                <div class="graduate">${esc(page.studentName)}</div>
+                <div class="roll">${esc(page.rollLine)}</div>
+                <p class="statement">${esc(page.statement)}</p>
+                <div class="subjects">${esc(page.subjects)}</div>
+                <div class="when">${esc(page.conferredLine)}</div>
+                <div class="sign">
+                    ${page.signatures.map(s => `<div><strong>${esc(s.name)}</strong><span>${esc(s.role)}</span></div>`).join('')}
+                </div>
+                <div class="serial">${esc(page.serialLine)}</div>
+            </article>`;
+    }
+
     async function issue() {
         if (state.busy) return;
         const ids = [...state.picked];
-        if (!ids.length) { toast('Pick at least one student first.', 'err'); return; }
-        if (!state.conferredOn) { toast('The conferral date is required.', 'err'); return; }
+        if (!ready(ids)) return;
 
         state.busy = true;
         const button = content.querySelector('#issue');
         if (button) { button.disabled = true; button.innerHTML = '<span class="spinner"></span> Drawing'; }
         try {
-            const file = await download('api/certificates', {
-                studentIds: ids,
-                conferredOn: state.conferredOn,
-                term: state.term.trim() || null,
-            });
+            const file = await download('api/certificates', payload(ids));
             toast(`${file.filename} saved · ${ids.length} page(s)`);
         } catch (error) {
             toast(error.message, 'err');

@@ -4,9 +4,10 @@ import com.academy.portal.domain.Enrollment;
 import com.academy.portal.domain.Student;
 import com.academy.portal.domain.Subject;
 import com.academy.portal.domain.Teacher;
+import com.academy.portal.dto.CertificatePageDto;
 import com.academy.portal.dto.CertificatePdf;
+import com.academy.portal.dto.CertificatePreviewDto;
 import com.academy.portal.dto.CertificateRequest;
-import com.academy.portal.dto.MeDto;
 import com.academy.portal.repository.EnrollmentRepository;
 import com.academy.portal.repository.StudentRepository;
 import com.academy.portal.repository.SubjectRepository;
@@ -47,6 +48,9 @@ public class CertificateService {
     private static final Color INK = new Color(0x1f2a44);
     private static final Color MUTED = new Color(0x5a6478);
 
+    private static final String HEADING = "CERTIFICATE OF GRADUATION";
+    private static final String CERTIFY_LINE = "This is to certify that";
+
     private static final Font ACADEMY = new Font(Font.TIMES_ROMAN, 12, Font.BOLD, MUTED);
     private static final Font TITLE = new Font(Font.TIMES_ROMAN, 30, Font.BOLD, INK);
     private static final Font LEAD_IN = new Font(Font.TIMES_ROMAN, 13, Font.ITALIC, MUTED);
@@ -79,6 +83,41 @@ public class CertificateService {
 
     @Transactional(readOnly = true)
     public CertificatePdf issue(CertificateRequest request) {
+        List<Student> students = selected(request);
+        List<CertificatePageDto> pages = pagesOf(students, request);
+
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        Document document = new Document(PageSize.A4.rotate(), 68, 68, 54, 58);
+        document.addTitle("Graduation certificate");
+        document.addCreator(academyName);
+        try {
+            PdfWriter writer = PdfWriter.getInstance(document, buffer);
+            document.open();
+            for (int index = 0; index < pages.size(); index += 1) {
+                if (index > 0) {
+                    document.newPage();
+                }
+                frame(writer, document);
+                render(document, pages.get(index));
+            }
+            document.close();
+        } catch (DocumentException failure) {
+            throw new IllegalStateException("Could not render the certificates: " + failure.getMessage(), failure);
+        }
+
+        String filename = students.size() == 1
+                ? "graduation-certificate-" + slug(students.get(0).getRollNumber()) + ".pdf"
+                : "graduation-certificates-" + students.size() + "-students.pdf";
+        return new CertificatePdf(filename, students.size(), buffer.toByteArray());
+    }
+
+    /** The same pages the PDF will carry, so the admin reads the real wording before downloading. */
+    @Transactional(readOnly = true)
+    public CertificatePreviewDto preview(CertificateRequest request) {
+        return new CertificatePreviewDto(HEADING, CERTIFY_LINE, pagesOf(selected(request), request));
+    }
+
+    private List<Student> selected(CertificateRequest request) {
         List<Long> ids = request.studentIds() == null ? List.of() : request.studentIds();
         if (ids.isEmpty()) {
             throw new BadRequestException("Select at least one student to certify");
@@ -96,60 +135,44 @@ public class CertificateService {
             students.forEach(student -> missing.remove(student.getId()));
             throw new NotFoundException("No student found with id " + missing.get(0));
         }
-
-        MeDto issuer = currentUserService.me();
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-        Document document = new Document(PageSize.A4.rotate(), 68, 68, 54, 58);
-        document.addTitle("Graduation certificate");
-        document.addCreator(academyName);
-        try {
-            PdfWriter writer = PdfWriter.getInstance(document, buffer);
-            document.open();
-            for (int index = 0; index < students.size(); index += 1) {
-                if (index > 0) {
-                    document.newPage();
-                }
-                frame(writer, document);
-                page(document, students.get(index), request, issuer.fullName());
-            }
-            document.close();
-        } catch (DocumentException failure) {
-            throw new IllegalStateException("Could not render the certificates: " + failure.getMessage(), failure);
-        }
-
-        String filename = students.size() == 1
-                ? "graduation-certificate-" + slug(students.get(0).getRollNumber()) + ".pdf"
-                : "graduation-certificates-" + students.size() + "-students.pdf";
-        return new CertificatePdf(filename, students.size(), buffer.toByteArray());
+        return students;
     }
 
-    private void page(Document document, Student student, CertificateRequest request, String issuer)
-            throws DocumentException {
-        String serial = "CERT-" + student.getRollNumber() + "-" + request.conferredOn().format(COMPACT_DATE);
+    private List<CertificatePageDto> pagesOf(List<Student> students, CertificateRequest request) {
+        String issuer = currentUserService.me().fullName();
+        return students.stream().map(student -> page(student, request, issuer)).toList();
+    }
+
+    private CertificatePageDto page(Student student, CertificateRequest request, String issuer) {
         String term = request.term() == null || request.term().isBlank()
                 ? "" : "  ·  Term " + request.term().trim();
-
-        add(document, spaced(academyName.toUpperCase(Locale.ENGLISH), ACADEMY), 0f, 6f);
-        add(document, spaced("CERTIFICATE OF GRADUATION", TITLE), 6f, 2f);
-        add(document, spaced("This is to certify that", LEAD_IN), 12f, 8f);
-        add(document, spaced(studentFullName(student), NAME), 0f, 4f);
-        add(document, spaced("Roll number " + student.getRollNumber()
-                + "  ·  " + student.getClassLevel(), LABEL), 0f, 18f);
-
-        Paragraph statement = new Paragraph(
+        return new CertificatePageDto(
+                academyName.toUpperCase(Locale.ENGLISH),
+                studentFullName(student),
+                "Roll number " + student.getRollNumber() + "  ·  " + student.getClassLevel(),
                 "has successfully completed the programme of study in " + student.getClassLevel()
                         + " and is hereby awarded the certificate of graduation, together with all the"
-                        + " rights and privileges pertaining thereto.", BODY);
-        statement.setAlignment(Element.ALIGN_CENTER);
-        add(document, statement, 0f, 16f);
+                        + " rights and privileges pertaining thereto.",
+                coursesOf(student),
+                "Conferred on " + request.conferredOn().format(LONG_DATE) + term,
+                List.of(new CertificatePageDto.Signature(leadOf(student), "Programme Lead, " + student.getClassLevel()),
+                        new CertificatePageDto.Signature(issuer, "Head of Academy")),
+                "Serial CERT-" + student.getRollNumber() + "-" + request.conferredOn().format(COMPACT_DATE)
+                        + "  ·  Issued by " + issuer + " through the " + academyName + " on "
+                        + LocalDate.now().format(LONG_DATE));
+    }
 
-        add(document, spaced(coursesOf(student), STRONG), 0f, 3f);
-        add(document, spaced("Conferred on "
-                + request.conferredOn().format(LONG_DATE) + term, LABEL), 0f, 30f);
-
-        add(document, signatures(student, issuer), 0f, 8f);
-        add(document, spaced("Serial " + serial + "  ·  Issued by " + issuer
-                + " through the " + academyName + " on " + LocalDate.now().format(LONG_DATE), SMALL), 6f, 0f);
+    private void render(Document document, CertificatePageDto view) throws DocumentException {
+        add(document, spaced(view.academyName(), ACADEMY), 0f, 6f);
+        add(document, spaced(HEADING, TITLE), 6f, 2f);
+        add(document, spaced(CERTIFY_LINE, LEAD_IN), 12f, 8f);
+        add(document, spaced(view.studentName(), NAME), 0f, 4f);
+        add(document, spaced(view.rollLine(), LABEL), 0f, 18f);
+        add(document, spaced(view.statement(), BODY), 0f, 16f);
+        add(document, spaced(view.subjects(), STRONG), 0f, 3f);
+        add(document, spaced(view.conferredLine(), LABEL), 0f, 30f);
+        add(document, signatures(view.signatures()), 0f, 8f);
+        add(document, spaced(view.serialLine(), SMALL), 6f, 0f);
     }
 
     private PdfPCell rule() {
@@ -171,23 +194,25 @@ public class CertificateService {
         return cell;
     }
 
-    private PdfPTable signatures(Student student, String issuer) {
-        Teacher lead = teacherRepository.search(null, student.getClassLevel()).stream()
-                .filter(candidate -> "Head of Department".equalsIgnoreCase(candidate.getDesignation()))
-                .findFirst()
-                .orElseGet(() -> teacherRepository.search(null, student.getClassLevel()).stream()
-                        .min(Comparator.comparing(Teacher::getLastName))
-                        .orElse(null));
-
+    private PdfPTable signatures(List<CertificatePageDto.Signature> signatories) {
         PdfPTable table = new PdfPTable(2);
         table.setWidthPercentage(82);
         table.setHorizontalAlignment(Element.ALIGN_CENTER);
         table.addCell(rule());
         table.addCell(rule());
-        table.addCell(label(lead == null ? "Programme office" : lead.getFirstName() + " " + lead.getLastName(),
-                "Programme Lead, " + student.getClassLevel()));
-        table.addCell(label(issuer, "Head of Academy"));
+        signatories.forEach(signatory -> table.addCell(label(signatory.name(), signatory.role())));
         return table;
+    }
+
+    /** The programme's head of department, or the first of its faculty by surname when there is none. */
+    private String leadOf(Student student) {
+        List<Teacher> faculty = teacherRepository.search(null, student.getClassLevel());
+        return faculty.stream()
+                .filter(candidate -> "Head of Department".equalsIgnoreCase(candidate.getDesignation()))
+                .findFirst()
+                .or(() -> faculty.stream().min(Comparator.comparing(Teacher::getLastName)))
+                .map(teacher -> teacher.getFirstName() + " " + teacher.getLastName())
+                .orElse("Programme office");
     }
 
     private String coursesOf(Student student) {
