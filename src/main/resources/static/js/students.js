@@ -215,83 +215,14 @@
     }
 
     /** The sign-in is the academy email; only the default password can be shown, a chosen one cannot. */
-    async function openLoginDialog(student) {
-        let info;
-        try {
-            info = await get(`api/students/${student.id}/login`);
-        } catch (error) {
-            toast(error.message, 'err');
-            return;
-        }
-
-        const backdrop = document.createElement('div');
-        backdrop.className = 'modal-backdrop';
-        backdrop.innerHTML = `
-            <div class="modal" style="max-width:560px" role="dialog" aria-modal="true" aria-label="Student sign-in">
-                <header>
-                    <h3>Sign-in for ${esc(student.firstName)} ${esc(student.lastName)}</h3>
-                    <p>Roll ${esc(student.rollNumber)} · ${esc(student.classLevel)}</p>
-                </header>
-                <div style="padding:18px 24px 24px">
-                    <dl class="facts">
-                        <dt>Username</dt><dd><code>${esc(info.username)}</code></dd>
-                        <dt>Password</dt><dd id="login-password">${info.passwordIsDefault
-                            ? `Academy default: <code>${esc(info.defaultPassword)}</code>`
-                            : 'Chosen by the student'}</dd>
-                    </dl>
-                    <p class="cell-sub" id="login-note" style="margin:12px 0 0">${info.passwordIsDefault
-                        ? 'The student has not chosen a password yet.'
-                        : 'The student chose this password; it cannot be read back. Reset it to hand out a new one.'}</p>
-                    <div class="modal-actions">
-                        <button type="button" class="btn-ghost" data-close>Close</button>
-                        <button type="button" class="btn-ghost" id="reset-login">Reset to default</button>
-                        <button type="button" class="btn-primary" id="set-login">Set a new password</button>
-                    </div>
-                </div>
-            </div>`;
-        document.body.appendChild(backdrop);
-
-        const onKey = (event) => {
-            if (event.key === 'Escape') { backdrop.remove(); document.removeEventListener('keydown', onKey); }
-        };
-        document.addEventListener('keydown', onKey);
-        backdrop.addEventListener('click', (event) => {
-            if (event.target === backdrop) { backdrop.remove(); document.removeEventListener('keydown', onKey); }
-        });
-        backdrop.querySelector('[data-close]').addEventListener('click', () => {
-            backdrop.remove();
-            document.removeEventListener('keydown', onKey);
-        });
-
-        backdrop.querySelector('#reset-login').addEventListener('click', async (event) => {
-            const button = event.currentTarget;
-            button.disabled = true;
-            try {
-                const reset = await post(`api/students/${student.id}/login/reset`, {});
-                backdrop.querySelector('#login-password').innerHTML = `New password: <code>${esc(reset.password)}</code>`;
-                backdrop.querySelector('#login-note').textContent =
-                    'Share this with the student once. Only its hash is stored, so it cannot be shown again.';
-                toast(`Password for ${student.firstName} reset`);
-            } catch (error) {
-                toast(error.message, 'err');
-            } finally {
-                button.disabled = false;
-            }
-        });
-
-        backdrop.querySelector('#set-login').addEventListener('click', async () => {
-            backdrop.remove();
-            document.removeEventListener('keydown', onKey);
-            await recordForm({
-                title: `Set a password for ${student.firstName} ${student.lastName}`,
-                subtitle: 'The student signs in with this once, then can change it from the portal.',
-                fields: [{ name: 'password', label: 'New password', type: 'password', required: true, span: 'full' }],
-                submitLabel: 'Set password',
-                save: async (values) => {
-                    await post(`api/students/${student.id}/login/reset`, { password: values.password });
-                    toast(`New password set for ${student.firstName}`);
-                },
-            });
+    function openLoginDialog(student) {
+        const full = `${student.firstName} ${student.lastName}`;
+        return Portal.loginDialog({
+            title: full,
+            subtitle: `Roll ${student.rollNumber} · ${student.classLevel}`,
+            basePath: `api/students/${student.id}`,
+            who: 'student',
+            name: student.firstName,
         });
     }
 

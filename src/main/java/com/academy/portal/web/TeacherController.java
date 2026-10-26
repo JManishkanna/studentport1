@@ -1,5 +1,8 @@
 package com.academy.portal.web;
 
+import com.academy.portal.dto.AccountLoginDto;
+import com.academy.portal.dto.AccountLoginReset;
+import com.academy.portal.dto.LoginResetRequest;
 import com.academy.portal.dto.ScheduleRow;
 import com.academy.portal.dto.TeacherDto;
 import com.academy.portal.service.BadRequestException;
@@ -85,6 +88,21 @@ public class TeacherController {
     public Map<String, String> delete(@PathVariable Long id) {
         teacherService.delete(id);
         return Map.of("status", "deleted", "id", String.valueOf(id));
+    }
+
+    // ---- administration of a teacher's sign-in -----------------------------
+
+    @GetMapping("/{id}/login")
+    @PreAuthorize("hasRole('ADMIN')")
+    public AccountLoginDto login(@PathVariable Long id) {
+        return teacherService.loginInfo(id);
+    }
+
+    @PostMapping("/{id}/login/reset")
+    @PreAuthorize("hasRole('ADMIN')")
+    public AccountLoginReset resetLogin(@PathVariable Long id,
+                                        @RequestBody(required = false) LoginResetRequest request) {
+        return teacherService.resetLogin(id, request == null ? null : request.password());
     }
 
     private Long ownTeacherId() {

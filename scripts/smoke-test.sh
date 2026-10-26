@@ -17,6 +17,20 @@ login() { # login JAR_FILE user pass
         --data-urlencode "username=$user" --data-urlencode "password=$pass"
 }
 
+check_login() { # check_login LABEL USER PASS -> proves the credential opens a session for that username
+    local label="$1" user="$2" pass="$3" jar code me
+    jar=$(mktemp)
+    code=$(login "$jar" "$user" "$pass")
+    me=$(curl -s -o /tmp/portal-resp.json -w "%{http_code}" -b "$jar" -c "$jar" \
+        "$BASE/api/auth/me" -H 'Accept: application/json')
+    if [ "$code" = "302" ] && [ "$me" = "200" ] && grep -qF -- "\"username\":\"$user\"" /tmp/portal-resp.json; then
+        PASS=$((PASS + 1)); printf '  ok   %-46s signed in\n' "$label"
+    else
+        FAIL=$((FAIL + 1)); printf '  FAIL %-46s login=%s me=%s\n' "$label" "$code" "$me"
+    fi
+    rm -f "$jar"
+}
+
 hit() { # hit JAR METHOD PATH [BODY] -> writes body to /tmp/portal-resp.json, prints status
     local jar="$1" method="$2" path="$3" body="${4:-}" tk
     tk=$(curl -s -b "$jar" -c "$jar" "$BASE/api/auth/csrf" | sed -E 's/.*"token":"([^"]+)".*/\1/')
@@ -125,6 +139,10 @@ check "student subjects" 200 GET /api/students/1/subjects
 check "student classmates" 200 GET /api/students/1/classmates
 check "teacher directory" 200 GET /api/teachers
 check "teacher schedule" 200 GET /api/teachers/1/schedule
+check "teacher sign-in info" 200 GET /api/teachers/1/login
+expect_in "teacher signs in as the email" 'suresh.babu@academy.edu'
+check "teacher reset to default" 200 POST /api/teachers/1/login/reset '{}'
+expect_in "teacher reset hands back the default" '"password":"PASSWORD"'
 check "timetable filtered" 200 GET '/api/schedules?classLevel=Full%20Stack%20Java&section=A'
 check "subject catalog" 200 GET /api/subjects
 check "contact directory" 200 GET /api/contacts
@@ -201,6 +219,19 @@ SESSION_ID=$(first_id)
 check "session updated" 200 PUT "/api/schedules/$SESSION_ID" "$(echo "$GOOD" | sed 's/"room":"Room 7"/"room":"Room 8"/')"
 check "session deleted" 200 DELETE "/api/schedules/$SESSION_ID"
 
+TEACHER='{"employeeCode":"'"$RUN_TAG"'T","firstName":"Smoke","lastName":"Faculty","department":"QA","email":"'"$RUN_TAG"'t@academy.edu","phone":"+91 90000 77777","designation":"Guest Faculty","status":"ACTIVE"}'
+check "add teacher" 200 POST /api/teachers "$TEACHER"
+TEACHER_ID=$(first_id)
+check "new teacher gets a sign-in" 200 GET "/api/teachers/$TEACHER_ID/login"
+expect_in "teacher login is the academy email" "$RUN_TAG"'t@academy.edu'
+check "teacher email updated" 200 PUT "/api/teachers/$TEACHER_ID" "$(echo "$TEACHER" | sed 's/t@academy\.edu/t2@academy.edu/')"
+check "teacher login follows the email" 200 GET "/api/teachers/$TEACHER_ID/login"
+expect_in "renamed teacher signs in as the new email" "$RUN_TAG"'t2@academy.edu'
+check "set a teacher password" 200 POST "/api/teachers/$TEACHER_ID/login/reset" '{"password":"TempPass#2026"}'
+expect_in "teacher password is no longer the default" '"passwordIsDefault":false'
+check_login "teacher signs in with the new password" "$RUN_TAG"t2@academy.edu 'TempPass#2026'
+check "too short a teacher password rejected" 400 POST "/api/teachers/$TEACHER_ID/login/reset" '{"password":"short"}'
+
 CONTACT='{"category":"SMOKE","name":"Smoke Test Desk","department":"QA","phone":"+91 80 0000 0000","email":"smoke@academy.edu","location":"Basement","availableHours":"Never"}'
 check "contact created" 200 POST /api/contacts "$CONTACT"
 CONTACT_ID=$(first_id)
@@ -224,8 +255,9 @@ check "preview with no student" 400 POST /api/certificates/preview '{"studentIds
 echo
 echo "== teacher =="
 JAR=$(mktemp)
-[ "$(login "$JAR" teacher teacher123)" = "302" ] || { echo "teacher login failed"; exit 1; }
+[ "$(login "$JAR" suresh.babu@academy.edu PASSWORD)" = "302" ] || { echo "teacher login failed"; exit 1; }
 check "own identity" 200 GET /api/auth/me
+expect_in "teacher signs in as the email" 'suresh.babu@academy.edu'
 check "own profile" 200 GET /api/teachers/me
 check "own schedule" 200 GET /api/teachers/me/schedule
 check "student directory allowed" 200 GET /api/students
@@ -247,6 +279,8 @@ check "cannot read a student sign-in" 403 GET /api/students/1/login
 check "cannot reset a student password" 403 POST /api/students/1/login/reset '{}'
 check "cannot issue certificates" 403 POST /api/certificates '{"studentIds":[1],"conferredOn":"2026-10-30"}'
 check "cannot preview certificates" 403 POST /api/certificates/preview '{"studentIds":[1],"conferredOn":"2026-10-30"}'
+check "cannot read teacher sign-ins" 403 GET /api/teachers/1/login
+check "cannot reset a teacher password" 403 POST /api/teachers/1/login/reset '{}'
 
 echo
 echo "== student =="
@@ -277,6 +311,8 @@ check "cannot reset a password" 403 POST /api/students/1/login/reset '{}'
 check "cannot add teacher" 403 POST /api/teachers '{"employeeCode":"X","firstName":"a","lastName":"b","department":"c","email":"x@y.edu"}'
 check "cannot issue a certificate" 403 POST /api/certificates '{"studentIds":[1],"conferredOn":"2026-10-30"}'
 check "cannot preview a certificate" 403 POST /api/certificates/preview '{"studentIds":[1],"conferredOn":"2026-10-30"}'
+check "cannot read teacher sign-ins" 403 GET /api/teachers/1/login
+check "cannot reset a teacher password" 403 POST /api/teachers/1/login/reset '{}'
 
 echo
 echo "== access control without a session =="
@@ -284,6 +320,7 @@ rm -f "$JAR"
 check "dashboard needs login" 401 GET /api/dashboard
 check "students need login" 401 GET /api/students
 check "people list needs login" 401 GET /api/contacts/people
+check "teacher sign-in needs login" 401 GET /api/teachers/1/login
 check "certificates need login" 401 POST /api/certificates '{"studentIds":[1],"conferredOn":"2026-10-30"}'
 check "preview needs login" 401 POST /api/certificates/preview '{"studentIds":[1],"conferredOn":"2026-10-30"}'
 check "sign-in info needs login" 401 GET /api/students/1/login
@@ -296,6 +333,7 @@ echo
 echo "cleanup"
 JAR=$(mktemp); login "$JAR" admin admin123 > /dev/null
 check "remove leftover student 2" 200 DELETE "/api/students/$ENROLL_ID"
+[ -n "${TEACHER_ID:-}" ] && check "remove leftover teacher" 200 DELETE "/api/teachers/$TEACHER_ID"
 rm -f "$JAR"
 
 echo

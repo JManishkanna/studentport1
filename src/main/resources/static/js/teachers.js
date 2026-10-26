@@ -125,6 +125,7 @@
                                     ${statusBadge(t.status)}
                                     <span class="badge">${esc(t.employeeCode)}</span>
                                     ${Portal.isAdmin() ? `<button class="btn btn-ghost btn-sm" data-edit="${t.id}">Edit</button>
+                                       <button class="btn btn-ghost btn-sm" data-login="${t.id}">Login</button>
                                        <button class="btn btn-danger btn-sm" data-remove="${t.id}">Delete</button>` : ''}
                                 </div>
                             </div>
@@ -140,6 +141,11 @@
         card.querySelectorAll('[data-edit]').forEach(button => button.addEventListener('click', (event) => {
             event.stopPropagation();
             openForm(state.teachers.find(t => String(t.id) === button.dataset.edit));
+        }));
+        card.querySelectorAll('[data-login]').forEach(button => button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const teacher = state.teachers.find(t => String(t.id) === button.dataset.login);
+            openLoginDialog(teacher);
         }));
         card.querySelectorAll('[data-remove]').forEach(button => button.addEventListener('click', async (event) => {
             event.stopPropagation();
@@ -163,6 +169,18 @@
                 state.departments = await get('api/teachers/departments');
                 await refresh();
             },
+        });
+    }
+
+    /** The sign-in is the academy email; only the default password can be shown, a chosen one cannot. */
+    function openLoginDialog(teacher) {
+        const full = `${teacher.firstName} ${teacher.lastName}`;
+        return Portal.loginDialog({
+            title: full,
+            subtitle: `${teacher.employeeCode} · ${teacher.department}`,
+            basePath: `api/teachers/${teacher.id}`,
+            who: 'teacher',
+            name: teacher.firstName,
         });
     }
 

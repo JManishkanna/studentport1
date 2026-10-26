@@ -1,6 +1,9 @@
 package com.academy.portal.service;
 
+import com.academy.portal.domain.Role;
 import com.academy.portal.domain.Teacher;
+import com.academy.portal.dto.AccountLoginDto;
+import com.academy.portal.dto.AccountLoginReset;
 import com.academy.portal.dto.TeacherDto;
 import com.academy.portal.repository.TeacherRepository;
 import java.time.LocalDate;
@@ -12,9 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class TeacherService {
 
     private final TeacherRepository teacherRepository;
+    private final LinkedAccountService accountService;
 
-    public TeacherService(TeacherRepository teacherRepository) {
+    public TeacherService(TeacherRepository teacherRepository, LinkedAccountService accountService) {
         this.teacherRepository = teacherRepository;
+        this.accountService = accountService;
     }
 
     @Transactional(readOnly = true)
@@ -50,7 +55,9 @@ public class TeacherService {
         }
         Teacher teacher = new Teacher();
         apply(teacher, dto);
-        return toDto(teacherRepository.save(teacher));
+        Teacher saved = teacherRepository.save(teacher);
+        accountService.ensureAccount(Role.TEACHER, saved.getId(), saved.getEmail(), fullName(saved));
+        return toDto(saved);
     }
 
     @Transactional
@@ -64,12 +71,32 @@ public class TeacherService {
             throw new ConflictException("Email " + dto.email() + " is already registered");
         }
         apply(teacher, dto);
-        return toDto(teacherRepository.save(teacher));
+        Teacher saved = teacherRepository.save(teacher);
+        accountService.ensureAccount(Role.TEACHER, saved.getId(), saved.getEmail(), fullName(saved));
+        return toDto(saved);
     }
 
     @Transactional
     public void delete(Long id) {
-        teacherRepository.delete(load(id));
+        Teacher teacher = load(id);
+        accountService.removeFor(Role.TEACHER, teacher.getId());
+        teacherRepository.delete(teacher);
+    }
+
+    @Transactional(readOnly = true)
+    public AccountLoginDto loginInfo(Long teacherId) {
+        Teacher teacher = load(teacherId);
+        return accountService.loginInfo(Role.TEACHER, teacherId, teacher.getEmail());
+    }
+
+    @Transactional
+    public AccountLoginReset resetLogin(Long teacherId, String requested) {
+        Teacher teacher = load(teacherId);
+        return accountService.reset(Role.TEACHER, teacherId, teacher.getEmail(), fullName(teacher), requested);
+    }
+
+    private String fullName(Teacher teacher) {
+        return (teacher.getFirstName() + " " + teacher.getLastName()).trim();
     }
 
     private boolean emailExists(String email) {

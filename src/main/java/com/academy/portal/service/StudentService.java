@@ -1,8 +1,11 @@
 package com.academy.portal.service;
 
 import com.academy.portal.domain.Enrollment;
+import com.academy.portal.domain.Role;
 import com.academy.portal.domain.Student;
 import com.academy.portal.domain.Subject;
+import com.academy.portal.dto.AccountLoginDto;
+import com.academy.portal.dto.AccountLoginReset;
 import com.academy.portal.dto.EnrolledSubject;
 import com.academy.portal.dto.ScheduleRow;
 import com.academy.portal.dto.StudentDto;
@@ -25,18 +28,18 @@ public class StudentService {
     private final EnrollmentRepository enrollmentRepository;
     private final SubjectRepository subjectRepository;
     private final ClassScheduleRepository scheduleRepository;
-    private final StudentAccountService studentAccountService;
+    private final LinkedAccountService accountService;
 
     public StudentService(StudentRepository studentRepository,
                           EnrollmentRepository enrollmentRepository,
                           SubjectRepository subjectRepository,
                           ClassScheduleRepository scheduleRepository,
-                          StudentAccountService studentAccountService) {
+                          LinkedAccountService accountService) {
         this.studentRepository = studentRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.subjectRepository = subjectRepository;
         this.scheduleRepository = scheduleRepository;
-        this.studentAccountService = studentAccountService;
+        this.accountService = accountService;
     }
 
     @Transactional(readOnly = true)
@@ -76,7 +79,7 @@ public class StudentService {
         Student student = new Student();
         apply(student, dto);
         Student saved = studentRepository.save(student);
-        studentAccountService.ensureAccount(saved);
+        accountService.ensureAccount(Role.STUDENT, saved.getId(), saved.getEmail(), fullName(saved));
         return toDto(saved);
     }
 
@@ -92,14 +95,14 @@ public class StudentService {
         }
         apply(student, dto);
         Student saved = studentRepository.save(student);
-        studentAccountService.ensureAccount(saved);
+        accountService.ensureAccount(Role.STUDENT, saved.getId(), saved.getEmail(), fullName(saved));
         return toDto(saved);
     }
 
     @Transactional
     public void delete(Long id) {
         Student student = load(id);
-        studentAccountService.removeForStudent(student.getId());
+        accountService.removeFor(Role.STUDENT, student.getId());
         enrollmentRepository.findByStudentIdOrderByIdAsc(student.getId())
                 .forEach(enrollmentRepository::delete);
         studentRepository.delete(student);
@@ -171,9 +174,25 @@ public class StudentService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public AccountLoginDto loginInfo(Long studentId) {
+        Student student = load(studentId);
+        return accountService.loginInfo(Role.STUDENT, studentId, student.getEmail());
+    }
+
+    @Transactional
+    public AccountLoginReset resetLogin(Long studentId, String requested) {
+        Student student = load(studentId);
+        return accountService.reset(Role.STUDENT, studentId, student.getEmail(), fullName(student), requested);
+    }
+
     private Student load(Long id) {
         return studentRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("No student found with id " + id));
+    }
+
+    private String fullName(Student student) {
+        return (student.getFirstName() + " " + student.getLastName()).trim();
     }
 
     private boolean emailExists(String email) {

@@ -298,6 +298,83 @@ const Portal = (() => {
         });
     }
 
+    /**
+     * The administrator's view of one sign-in. The login id is always known; a password the person
+     * chose cannot be read back (only its hash is stored), so the dialog offers a reset instead.
+     */
+    async function loginDialog({ title, subtitle, basePath, who, name }) {
+        let info;
+        try {
+            info = await get(`${basePath}/login`);
+        } catch (error) {
+            toast(error.message, 'err');
+            return;
+        }
+
+        const backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop';
+        backdrop.innerHTML = `
+            <div class="modal" style="max-width:560px" role="dialog" aria-modal="true" aria-label="Sign-in for ${esc(title)}">
+                <header>
+                    <h3>Sign-in for ${esc(title)}</h3>
+                    <p>${esc(subtitle)}</p>
+                </header>
+                <div style="padding:18px 24px 24px">
+                    <dl class="facts">
+                        <dt>Username</dt><dd><code>${esc(info.username)}</code></dd>
+                        <dt>Password</dt><dd id="login-password">${info.passwordIsDefault
+                            ? `Academy default: <code>${esc(info.defaultPassword)}</code>`
+                            : `Chosen by the ${esc(who)}`}</dd>
+                    </dl>
+                    <p class="cell-sub" id="login-note" style="margin:12px 0 0">${info.passwordIsDefault
+                        ? `The ${esc(who)} has not chosen a password yet.`
+                        : `The ${esc(who)} chose this password; it cannot be read back. Reset it to hand out a new one.`}</p>
+                    <div class="modal-actions">
+                        <button type="button" class="btn-ghost" data-close>Close</button>
+                        <button type="button" class="btn-ghost" id="reset-login">Reset to default</button>
+                        <button type="button" class="btn-primary" id="set-login">Set a new password</button>
+                    </div>
+                </div>
+            </div>`;
+        document.body.appendChild(backdrop);
+
+        const close = () => { backdrop.remove(); document.removeEventListener('keydown', onKey); };
+        const onKey = (event) => { if (event.key === 'Escape') close(); };
+        document.addEventListener('keydown', onKey);
+        backdrop.addEventListener('click', (event) => { if (event.target === backdrop) close(); });
+        backdrop.querySelector('[data-close]').addEventListener('click', close);
+
+        backdrop.querySelector('#reset-login').addEventListener('click', async (event) => {
+            const button = event.currentTarget;
+            button.disabled = true;
+            try {
+                const reset = await post(`${basePath}/login/reset`, {});
+                backdrop.querySelector('#login-password').innerHTML = `New password: <code>${esc(reset.password)}</code>`;
+                backdrop.querySelector('#login-note').textContent =
+                    `Share this with the ${who} once. Only its hash is stored, so it cannot be shown again.`;
+                toast(`Password for ${name} reset`);
+            } catch (error) {
+                toast(error.message, 'err');
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        backdrop.querySelector('#set-login').addEventListener('click', async () => {
+            close();
+            await recordForm({
+                title: `Set a password for ${title}`,
+                subtitle: `The ${who} signs in with this once, then can change it from the portal.`,
+                fields: [{ name: 'password', label: 'New password', type: 'password', required: true, span: 'full' }],
+                submitLabel: 'Set password',
+                save: async (values) => {
+                    await post(`${basePath}/login/reset`, { password: values.password });
+                    toast(`New password set for ${name}`);
+                },
+            });
+        });
+    }
+
     function confirmDialog({ title, message, confirmLabel = 'Delete', danger = true }) {
         return new Promise((resolve) => {
             const backdrop = document.createElement('div');
@@ -423,7 +500,7 @@ const Portal = (() => {
     return {
         esc, get, post, put, del, boot, refreshCsrf, current, isAdmin, isTeacher, isStudent, label,
         initials, formatDate, formatTime, dayName, days: DAYS, age,
-        mountShell, toast, recordForm, confirmDialog, statusBadge, slotCard, emptyState, queryParam, download,
-        upload, refreshMe,
+        mountShell, toast, recordForm, confirmDialog, loginDialog, statusBadge, slotCard, emptyState, queryParam,
+        download, upload, refreshMe,
     };
 })();

@@ -88,40 +88,41 @@ Created automatically on first boot by `UserSeeder` (BCrypt-hashed; disable with
 | Username | Password | Role | What they see |
 | --- | --- | --- | --- |
 | `admin` | `admin123` | ADMIN | Everything, plus create/edit/delete |
-| `teacher` | `teacher123` | TEACHER | Student directory, all timetables, own profile |
+| any teacher email, e.g. `suresh.babu@academy.edu` | `PASSWORD` | TEACHER | Student directory, all timetables, own profile |
 | any student email, e.g. `aarav.menon@student.academy.edu` | `PASSWORD` | STUDENT | Own profile, own timetable, own subjects only |
 
-**Change these before deploying anywhere real.** The teacher account is linked to `ACAD-T-001`
-(Suresh Babu).
+**Change these before deploying anywhere real.**
 
-### Student sign-ins
+### Student and teacher sign-ins
 
-Every student row gets a login of its own, keyed on the academy email: admitting a student opens the
-account, changing the email moves the login with it, and deleting the student removes both. The
-first password is the shared default from `portal.student.default-password` (override with
-`STUDENT_DEFAULT_PASSWORD`; it defaults to `PASSWORD`). The seeder also adopts the older single
-`student` demo login, renaming it to `aarav.menon@student.academy.edu` and resetting it to the
-default, so the hint on the sign-in page stays accurate.
+Every student and teacher row gets a login of its own, keyed on the academy email: admitting a
+student or teacher opens the account, changing the email moves the login with it, and deleting the
+row removes both. The first password is the shared default from `portal.default-password` (override
+with `ACADEMY_DEFAULT_PASSWORD`; it defaults to `PASSWORD`). The seeder also adopts the older single
+`student` and `teacher` demo logins, renaming them to `aarav.menon@student.academy.edu` and
+`suresh.babu@academy.edu` and resetting them to the default, so the hint on the sign-in page stays
+accurate.
 
 A one-time migration flag, `app_users.password_is_default`, records whether an account still carries
-the password the academy handed out. Students change it themselves on **Account settings** (current
-password + a new one of at least 8 characters); the flag clears, and from then on only a BCrypt hash
-exists.
+the password the academy handed out. Students and teachers change it themselves on **Account
+settings** (current password + a new one of at least 8 characters); the flag clears, and from then
+on only a BCrypt hash exists.
 
-Administrators open a student's **Login** dialog from the register. It shows the username and either
-the default password or "chosen by the student". Because chosen passwords are only stored as hashes,
-they cannot be read back — the dialog can instead **Reset to default** (revealing the value once) or
-**Set a new password** and hand it to the student. Both write a fresh hash and update the flag.
+Administrators open a student's **Login** dialog from the register, or a teacher's from the faculty
+directory. It shows the username and either the default password or "chosen by the student/teacher".
+Because chosen passwords are only stored as hashes, they cannot be read back — the dialog can
+instead **Reset to default** (revealing the value once) or **Set a new password** and hand it over.
+Both write a fresh hash and update the flag.
 
 ## 5. Pages
 
 | Page | File | Purpose |
 | --- | --- | --- |
-| Sign in | `static/login.html` | Session login, CSRF-aware; takes a username or a student email |
+| Sign in | `static/login.html` | Session login, CSRF-aware; takes a username, a student email or a teacher email |
 | Dashboard | `static/index.html` | Role-aware overview: academy stats and today's classes, or a student's own day |
 | Students | `static/students.html` | Search / filter roster, admit, edit, manage the student's sign-in, remove (admin) |
 | Student profile | `static/student-profile.html` | Profile, guardian + contact details, weekly timetable, enrolled subjects, classmates |
-| Teachers | `static/teachers.html` | Faculty directory cards with contact details |
+| Teachers | `static/teachers.html` | Faculty directory cards with contact details; admin adds, edits, manages sign-ins, removes |
 | Teacher profile | `static/teacher-profile.html` | Contact info, qualifications, weekly timetable, subjects and classes taught |
 | Timetable | `static/schedule.html` | Week grid with class/section/teacher/subject filters; admin builds sessions |
 | Contacts | `static/contacts.html` | Role-scoped people directory (see below) plus department desks and helplines grouped by category |
@@ -150,6 +151,8 @@ from `GET /api/auth/csrf`).
 | `GET` | `/api/teachers`, `/api/teachers/{id}`, `/api/teachers/{id}/schedule` | any signed-in user |
 | `GET` | `/api/teachers/me`, `/api/teachers/me/schedule` | signed-in teacher |
 | `POST` `PUT` `DELETE` | `/api/teachers/**` | ADMIN |
+| `GET` | `/api/teachers/{id}/login` → login id + default-password flag | ADMIN |
+| `POST` | `/api/teachers/{id}/login/reset` (`{password}`, or `{}` for the default) | ADMIN |
 | `GET` | `/api/schedules?dayOfWeek=&classLevel=&section=&teacherId=&subjectId=` | ADMIN, TEACHER |
 | `GET` | `/api/schedules/class?classLevel=&section=` | any signed-in user |
 | `POST` `PUT` `DELETE` | `/api/schedules/**` | ADMIN |
@@ -248,9 +251,9 @@ Business rules enforced in the service layer, not just the UI:
 - No two sessions can overlap for the same class/section, and a teacher cannot be double-booked —
   the API returns `409 Conflict` with the clashing slot named.
 - Deleting a student removes their enrollments; deleting a teacher removes their sessions.
-- A student's sign-in is opened, renamed and removed with the student. It starts on the academy
-  default password; changing it from **Account settings** clears `password_is_default`, and only the
-  hash is kept from then on.
+- A student's or teacher's sign-in is opened, renamed and removed with the record. It starts on the
+  academy default password; changing it from **Account settings** clears `password_is_default`, and
+  only the hash is kept from then on.
 - Students cannot read another student's record: `/api/students/{id}` is ADMIN/TEACHER only, and
   self-service always resolves the id from the session, never from the request.
 
