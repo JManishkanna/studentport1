@@ -2,7 +2,13 @@
     const { esc, get, post, put, del, recordForm, confirmDialog, toast, queryParam } = Portal;
     const content = document.getElementById('content');
 
-    const state = { q: queryParam('q', ''), category: queryParam('category', ''), contacts: [], categories: [] };
+    const state = { q: queryParam('q', ''), category: queryParam('category', ''), contacts: [], categories: [], people: [], peopleNote: '' };
+
+    const KINDS = [
+        ['FACULTY', 'Subject faculty', 'Who teaches the classes you are in'],
+        ['STUDENT', 'Students', 'Class division, scholar number and guardian line'],
+        ['ADMINISTRATION', 'Administration', 'Write to the desk that runs the academy'],
+    ];
 
     const FIELDS = [
         { name: 'category', label: 'Category', required: true, placeholder: 'ADMISSIONS' },
@@ -19,18 +25,37 @@
         const me = await Portal.boot('contacts');
         state.categories = await get('api/contacts/categories');
         state.contacts = await fetchRows();
+        await loadPeople();
 
         Portal.mountShell({
             active: 'contacts',
             title: 'Contact information',
-            subtitle: 'Department desks, helplines and office hours',
+            subtitle: subtitle(me.role),
             actions: me.role === 'ADMIN' ? '<button class="btn btn-primary" id="add">+ Add contact</button>' : '',
         });
 
         renderFilters();
+        renderDirectory();
         renderGroups();
 
         if (me.role === 'ADMIN') document.getElementById('add').addEventListener('click', () => openForm(null));
+    }
+
+    function subtitle(role) {
+        if (role === 'ADMIN') return 'Every faculty member and student, plus the academy desks';
+        if (role === 'TEACHER') return 'The students you teach, with their class division';
+        return 'Your subject faculty and the administration mailbox';
+    }
+
+    /** The people list is scoped by the session, so a sign-in with no classes simply gets a note. */
+    async function loadPeople() {
+        try {
+            state.people = await get('api/contacts/people');
+            state.peopleNote = '';
+        } catch (error) {
+            state.people = [];
+            state.peopleNote = error.message;
+        }
     }
 
     function fetchRows() {
@@ -57,6 +82,7 @@
 
         bar.querySelector('#fq').addEventListener('input', (event) => {
             state.q = event.target.value;
+            renderDirectory();
             renderGroups();
         });
         bar.querySelectorAll('[data-cat]').forEach(button => button.addEventListener('click', async () => {
@@ -76,6 +102,61 @@
         const needle = state.q.toLowerCase();
         return [contact.name, contact.phone, contact.alternatePhone, contact.email, contact.department, contact.location]
             .filter(Boolean).some(value => value.toLowerCase().includes(needle));
+    }
+
+    function renderDirectory() {
+        const needle = state.q.toLowerCase();
+        const visible = state.people.filter(person => !needle
+            || [person.name, person.code, person.phone, person.alternatePhone, person.email, person.detail]
+                .filter(Boolean).some(value => value.toLowerCase().includes(needle)));
+
+        const wrap = content.querySelector('#directory') || document.createElement('div');
+        wrap.className = 'grid two';
+        wrap.id = 'directory';
+        wrap.innerHTML = KINDS.map(([kind, heading, hint]) => {
+            const rows = visible.filter(person => person.kind === kind);
+            if (!rows.length) return '';
+            return `
+                <section class="card">
+                    <div class="card-head"><h2>${esc(heading)}</h2><span class="hint">${rows.length} listed</span></div>
+                    <div class="card-body tight">
+                        <table>
+                            <thead><tr><th>Person</th><th>Phone</th><th>Email</th></tr></thead>
+                            <tbody>
+                                ${rows.map(person => `
+                                    <tr>
+                                        <td>
+                                            <div class="cell-strong">${esc(person.name)}</div>
+                                            <div class="cell-sub">${esc(person.code || '')}</div>
+                                            <div class="cell-sub">${esc(person.detail || hint)}</div>
+                                        </td>
+                                        <td>
+                                            ${person.phone
+                                                ? `<div class="cell-strong"><a href="tel:${esc(person.phone.replace(/\s/g, ''))}">${esc(person.phone)}</a></div>`
+                                                : '<div class="cell-sub">not listed</div>'}
+                                            ${person.alternatePhone ? `<div class="cell-sub">Guardian ${esc(person.alternatePhone)}</div>` : ''}
+                                        </td>
+                                        <td>
+                                            ${person.email
+                                                ? `<a href="mailto:${esc(person.email)}">${esc(person.email)}</a>`
+                                                : '<span class="cell-sub">not listed</span>'}
+                                        </td>
+                                    </tr>`).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>`;
+        }).join('')
+            || `<section class="card"><div class="card-body">${esc(state.q
+                ? `Nothing in your contacts matches "${state.q}".`
+                : state.peopleNote || 'No people to list for this sign-in yet.')}</div></section>`;
+
+        if (wrap.parentNode !== content) {
+            // Keep the people directory above the desk groups it shares the page with.
+            const boards = content.querySelector('#boards');
+            if (boards) content.insertBefore(wrap, boards);
+            else content.appendChild(wrap);
+        }
     }
 
     function renderGroups() {

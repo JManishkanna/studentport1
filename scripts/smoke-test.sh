@@ -48,6 +48,24 @@ check() { # check LABEL EXPECTED METHOD PATH [BODY]
 
 first_id() { sed -E 's/.*"id":([0-9]+).*/\1/' /tmp/portal-resp.json | head -1; }
 
+# The people list is scoped server-side, so asserting a status code is not enough - these two
+# helpers check who is actually in the body of the request checked just above them.
+expect_in() {
+    if grep -qF -- "$2" /tmp/portal-resp.json; then
+        PASS=$((PASS + 1)); printf '  ok   %-46s listed\n' "$1"
+    else
+        FAIL=$((FAIL + 1)); printf '  FAIL %-46s missing [%s]\n' "$1" "$2"
+    fi
+}
+
+expect_out() {
+    if grep -qF -- "$2" /tmp/portal-resp.json; then
+        FAIL=$((FAIL + 1)); printf '  FAIL %-46s leaked [%s]\n' "$1" "$2"
+    else
+        PASS=$((PASS + 1)); printf '  ok   %-46s hidden\n' "$1"
+    fi
+}
+
 echo "== admin =="
 JAR=$(mktemp)
 [ "$(login "$JAR" admin admin123)" = "302" ] || { echo "admin login failed"; exit 1; }
@@ -64,6 +82,12 @@ check "timetable filtered" 200 GET '/api/schedules?classLevel=Full%20Stack%20Jav
 check "subject catalog" 200 GET /api/subjects
 check "contact directory" 200 GET /api/contacts
 check "contact categories" 200 GET /api/contacts/categories
+check "people directory" 200 GET /api/contacts/people
+expect_in "admin sees faculty" '"kind":"FACULTY"'
+expect_in "admin sees students" '"kind":"STUDENT"'
+expect_in "admin sees a roll number" 'ACAD-1101'
+expect_in "admin sees a guardian line" '+91 90000 20101'
+expect_out "admin list is not padded with admins" '"kind":"ADMINISTRATION"'
 
 STUDENT='{"rollNumber":"'"$RUN_TAG"'","firstName":"Smoke","lastName":"Cadet","email":"'"$RUN_TAG"'@student.academy.edu","phone":"+91 90000 99999","dateOfBirth":"2009-02-02","gender":"OTHER","classLevel":"Full Stack Java","section":"A","city":"Bengaluru","guardianName":"Guardian Bot","guardianPhone":"+91 90000 88888","status":"ACTIVE"}'
 check "admit student" 200 POST /api/students "$STUDENT"
@@ -108,6 +132,13 @@ check "own profile" 200 GET /api/teachers/me
 check "own schedule" 200 GET /api/teachers/me/schedule
 check "student directory allowed" 200 GET /api/students
 check "full timetable allowed" 200 GET /api/schedules
+check "class contacts" 200 GET /api/contacts/people
+expect_in "teacher reaches division A" 'ACAD-1101'
+expect_in "teacher reaches division B" 'ACAD-1103'
+expect_in "teacher gets class division" 'Full Stack Java - Section B'
+expect_in "teacher gets guardian number" '+91 90000 20103'
+expect_out "teacher cannot reach another programme" 'ACAD-1203'
+expect_out "teacher list holds no faculty" '"kind":"FACULTY"'
 check "cannot admit student" 403 POST /api/students "$STUDENT"
 check "cannot edit session" 403 PUT "/api/schedules/1" "$GOOD"
 check "cannot add contact" 403 POST /api/contacts "$CONTACT"
@@ -124,6 +155,13 @@ check "own classmates" 200 GET /api/students/me/classmates
 check "own class timetable" 200 GET '/api/schedules/class?classLevel=Full%20Stack%20Java&section=A'
 check "teacher directory readable" 200 GET /api/teachers
 check "contacts readable" 200 GET /api/contacts
+check "own contacts" 200 GET /api/contacts/people
+expect_in "student reaches subject faculty" 'Suresh Babu'
+expect_in "student gets faculty number" '+91 98450 11001'
+expect_in "student sees what they teach" 'Java Core and OOP'
+expect_in "student reaches admin mailbox" 'admin@academy.edu'
+expect_out "student list is not fellow students" '"kind":"STUDENT"'
+expect_out "student cannot reach another programme faculty" 'Neelam Kaur'
 check "cannot read other student" 403 GET /api/students/2
 check "cannot browse roster" 403 GET /api/students
 check "cannot read other schedule" 403 GET /api/students/2/schedule
@@ -135,6 +173,7 @@ echo "== access control without a session =="
 rm -f "$JAR"
 check "dashboard needs login" 401 GET /api/dashboard
 check "students need login" 401 GET /api/students
+check "people list needs login" 401 GET /api/contacts/people
 check "portal page redirects" 302 GET /index.html
 check "sign-in page is public" 200 GET /login.html
 

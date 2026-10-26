@@ -1,6 +1,7 @@
 package com.academy.portal.web;
 
 import com.academy.portal.dto.ContactDto;
+import com.academy.portal.dto.PersonContactDto;
 import com.academy.portal.service.ContactService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -29,6 +30,12 @@ public class ContactController {
     @GetMapping
     public List<ContactDto> list(@RequestParam(required = false) String category) {
         return contactService.list(category);
+    }
+
+    /** People the signed-in user is responsible for or answerable to, scoped by their own classes. */
+    @GetMapping("/people")
+    public List<PersonContactDto> people() {
+        return contactService.people();
     }
 
     @GetMapping("/categories")

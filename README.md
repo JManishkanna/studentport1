@@ -103,7 +103,7 @@ Created automatically on first boot by `UserSeeder` (BCrypt-hashed; disable with
 | Teachers | `static/teachers.html` | Faculty directory cards with contact details |
 | Teacher profile | `static/teacher-profile.html` | Contact info, qualifications, weekly timetable, subjects and classes taught |
 | Timetable | `static/schedule.html` | Week grid with class/section/teacher/subject filters; admin builds sessions |
-| Contacts | `static/contacts.html` | Department desks and helplines grouped by category |
+| Contacts | `static/contacts.html` | Role-scoped people directory (see below) plus department desks and helplines grouped by category |
 
 ## 6. REST API
 
@@ -126,7 +126,22 @@ from `GET /api/auth/csrf`).
 | `GET` | `/api/schedules/class?classLevel=&section=` | any signed-in user |
 | `POST` `PUT` `DELETE` | `/api/schedules/**` | ADMIN |
 | `GET` | `/api/contacts`, `/api/contacts/categories`, `/api/subjects` | any signed-in user |
+| `GET` | `/api/contacts/people` | any signed-in user, scoped to their own classes |
 | `POST` `PUT` `DELETE` | `/api/contacts/**` | ADMIN |
+
+### Who the contacts page shows
+
+`/api/contacts/people` works out the answerable list from the session and the timetable, so a client
+cannot widen it:
+
+| Signed-in as | Sees |
+| --- | --- |
+| STUDENT | The faculty who teach their class, with each teacher's phone, email and the subjects they are responsible for, plus the administration mailbox from `app_users` |
+| TEACHER | The students in every class and division on their own timetable, with roll number, student phone, guardian phone and email |
+| ADMIN | All faculty and all students |
+
+The manually maintained desk rows (`/api/contacts`) stay below that list for every role and are
+editable by ADMIN only.
 
 Quick check from the shell:
 
@@ -143,7 +158,8 @@ students ──┐
 subjects ──┤
            ├── class_schedules (subject + teacher + class/section + day + time + room)
 teachers ──┘
-contacts        standalone directory, grouped by category
+contacts        desk directory, grouped by category; the people list is derived from
+                class_schedules + students + teachers instead of this table
 app_users       login + role, points at a student or teacher row
 ```
 

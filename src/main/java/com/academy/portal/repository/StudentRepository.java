@@ -11,6 +11,10 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
 
     Optional<Student> findByRollNumberIgnoreCase(String rollNumber);
 
+    List<Student> findByClassLevelAndSectionOrderByRollNumberAsc(String classLevel, String section);
+
+    List<Student> findAllByOrderByClassLevelAscSectionAscRollNumberAsc();
+
     boolean existsByRollNumberIgnoreCaseAndIdNot(String rollNumber, Long id);
 
     boolean existsByEmailIgnoreCaseAndIdNot(String email, Long id);
