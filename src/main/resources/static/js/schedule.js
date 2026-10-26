@@ -178,7 +178,7 @@
 
     function fields() {
         return [
-            { name: 'classLevel', label: 'Class level', required: true, placeholder: 'Grade 11' },
+            { name: 'classLevel', label: 'Class level', required: true, placeholder: 'Full Stack Java' },
             { name: 'section', label: 'Section', required: true, placeholder: 'A' },
             {
                 name: 'subjectId',

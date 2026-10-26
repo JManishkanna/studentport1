@@ -53,26 +53,26 @@ JAR=$(mktemp)
 [ "$(login "$JAR" admin admin123)" = "302" ] || { echo "admin login failed"; exit 1; }
 check "session identity" 200 GET /api/auth/me
 check "dashboard" 200 GET /api/dashboard
-check "student directory" 200 GET '/api/students?classLevel=Grade%2011'
+check "student directory" 200 GET '/api/students?classLevel=Full%20Stack%20Java'
 check "student detail" 200 GET /api/students/1
 check "student schedule" 200 GET /api/students/1/schedule
 check "student subjects" 200 GET /api/students/1/subjects
 check "student classmates" 200 GET /api/students/1/classmates
 check "teacher directory" 200 GET /api/teachers
 check "teacher schedule" 200 GET /api/teachers/1/schedule
-check "timetable filtered" 200 GET '/api/schedules?classLevel=Grade%2011&section=A'
+check "timetable filtered" 200 GET '/api/schedules?classLevel=Full%20Stack%20Java&section=A'
 check "subject catalog" 200 GET /api/subjects
 check "contact directory" 200 GET /api/contacts
 check "contact categories" 200 GET /api/contacts/categories
 
-STUDENT='{"rollNumber":"'"$RUN_TAG"'","firstName":"Smoke","lastName":"Cadet","email":"'"$RUN_TAG"'@student.academy.edu","phone":"+91 90000 99999","dateOfBirth":"2009-02-02","gender":"OTHER","classLevel":"Grade 11","section":"A","city":"Bengaluru","guardianName":"Guardian Bot","guardianPhone":"+91 90000 88888","status":"ACTIVE"}'
+STUDENT='{"rollNumber":"'"$RUN_TAG"'","firstName":"Smoke","lastName":"Cadet","email":"'"$RUN_TAG"'@student.academy.edu","phone":"+91 90000 99999","dateOfBirth":"2009-02-02","gender":"OTHER","classLevel":"Full Stack Java","section":"A","city":"Bengaluru","guardianName":"Guardian Bot","guardianPhone":"+91 90000 88888","status":"ACTIVE"}'
 check "admit student" 200 POST /api/students "$STUDENT"
 NEW_ID=$(first_id)
 check "duplicate roll rejected" 409 POST /api/students "$STUDENT"
 check "update student" 200 PUT "/api/students/$NEW_ID" "$(echo "$STUDENT" | sed 's/"city":"Bengaluru"/"city":"Pune"/')"
 check "delete student" 200 DELETE "/api/students/$NEW_ID"
 
-STUDENT2='{"rollNumber":"'"$RUN_TAG"'B","firstName":"Enroll","lastName":"Test","email":"'"$RUN_TAG"'b@student.academy.edu","classLevel":"Grade 12","section":"A","status":"ACTIVE"}'
+STUDENT2='{"rollNumber":"'"$RUN_TAG"'B","firstName":"Enroll","lastName":"Test","email":"'"$RUN_TAG"'b@student.academy.edu","classLevel":"Full Stack Python","section":"A","status":"ACTIVE"}'
 check "admit second student" 200 POST /api/students "$STUDENT2"
 ENROLL_ID=$(first_id)
 check "enroll in subject" 200 POST "/api/students/$ENROLL_ID/subjects/1" '{}'
@@ -81,13 +81,13 @@ check "drop subject" 200 DELETE "/api/students/$ENROLL_ID/subjects/1"
 check "missing student 404" 404 GET /api/students/999999
 check "invalid payload 400" 400 POST /api/students '{"rollNumber":"","firstName":"","email":"nope","classLevel":"","status":"WEIRD"}'
 
-CLASH='{"subjectId":2,"teacherId":2,"classLevel":"Grade 11","section":"A","room":"Block A - 201","dayOfWeek":1,"startTime":"08:10:00","endTime":"08:40:00","term":"2026-ODD"}'
+CLASH='{"subjectId":2,"teacherId":2,"classLevel":"Full Stack Java","section":"A","room":"Block A - 201","dayOfWeek":1,"startTime":"08:10:00","endTime":"08:40:00","term":"2026-ODD"}'
 check "class time clash rejected" 409 POST /api/schedules "$CLASH"
-TCLASH='{"subjectId":5,"teacherId":2,"classLevel":"Grade 12","section":"B","room":"Lab 9","dayOfWeek":2,"startTime":"08:00:00","endTime":"08:45:00","term":"2026-ODD"}'
+TCLASH='{"subjectId":5,"teacherId":2,"classLevel":"Full Stack Python","section":"B","room":"Lab 9","dayOfWeek":2,"startTime":"08:00:00","endTime":"08:45:00","term":"2026-ODD"}'
 check "teacher double booking rejected" 409 POST /api/schedules "$TCLASH"
-BADTIME='{"subjectId":5,"teacherId":5,"classLevel":"Grade 9","section":"A","room":"Room 1","dayOfWeek":3,"startTime":"11:00:00","endTime":"10:00:00","term":"2026-ODD"}'
+BADTIME='{"subjectId":5,"teacherId":5,"classLevel":"UI/UX","section":"A","room":"Room 1","dayOfWeek":3,"startTime":"11:00:00","endTime":"10:00:00","term":"2026-ODD"}'
 check "end before start rejected" 400 POST /api/schedules "$BADTIME"
-GOOD='{"subjectId":8,"teacherId":5,"classLevel":"Grade 9","section":"A","room":"Room 7","dayOfWeek":3,"startTime":"13:00:00","endTime":"13:45:00","term":"2026-ODD"}'
+GOOD='{"subjectId":8,"teacherId":5,"classLevel":"UI/UX","section":"A","room":"Room 7","dayOfWeek":3,"startTime":"13:00:00","endTime":"13:45:00","term":"2026-ODD"}'
 check "valid session created" 200 POST /api/schedules "$GOOD"
 SESSION_ID=$(first_id)
 check "session updated" 200 PUT "/api/schedules/$SESSION_ID" "$(echo "$GOOD" | sed 's/"room":"Room 7"/"room":"Room 8"/')"
@@ -121,7 +121,7 @@ check "own profile" 200 GET /api/students/me
 check "own schedule" 200 GET /api/students/me/schedule
 check "own subjects" 200 GET /api/students/me/subjects
 check "own classmates" 200 GET /api/students/me/classmates
-check "own class timetable" 200 GET '/api/schedules/class?classLevel=Grade%2011&section=A'
+check "own class timetable" 200 GET '/api/schedules/class?classLevel=Full%20Stack%20Java&section=A'
 check "teacher directory readable" 200 GET /api/teachers
 check "contacts readable" 200 GET /api/contacts
 check "cannot read other student" 403 GET /api/students/2

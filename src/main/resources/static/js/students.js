@@ -24,7 +24,7 @@
     function studentFields() {
         return [
             { name: 'rollNumber', label: 'Roll number', required: true, placeholder: 'ACAD-1105' },
-            { name: 'classLevel', label: 'Class level', required: true, placeholder: 'Grade 11' },
+            { name: 'classLevel', label: 'Class level', required: true, placeholder: 'Full Stack Java' },
             { name: 'firstName', label: 'First name', required: true },
             { name: 'lastName', label: 'Last name', required: true },
             { name: 'section', label: 'Section', placeholder: 'A' },

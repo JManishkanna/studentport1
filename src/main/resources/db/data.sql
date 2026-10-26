@@ -23,76 +23,76 @@ INSERT IGNORE INTO subjects (id, code, name, department, credits) VALUES
  (8, 'PED', 'Physical Education','Sports',           2);
 
 INSERT IGNORE INTO students (id, roll_number, first_name, last_name, email, phone, date_of_birth, gender, class_level, section, address_line, city, guardian_name, guardian_phone, guardian_email, admission_date, status) VALUES
- (1,  'ACAD-1101', 'Aarav',     'Menon',    'aarav.menon@student.academy.edu',   '+91 90000 10101', '2009-04-12', 'MALE',   'Grade 11', 'A', '12 Palm Grove, Indiranagar',    'Bengaluru',  'Ravi Menon',      '+91 90000 20101', 'ravi.menon@gmail.com',   '2024-06-10', 'ACTIVE'),
- (2,  'ACAD-1102', 'Diya',      'Sharma',   'diya.sharma@student.academy.edu',   '+91 90000 10102', '2009-08-03', 'FEMALE', 'Grade 11', 'A', '45 MG Road, Sector 2',          'Bengaluru',  'Nikhil Sharma',   '+91 90000 20102', 'nikhil.sharma@gmail.com','2024-06-10', 'ACTIVE'),
- (3,  'ACAD-1103', 'Rohan',     'Iyer',     'rohan.iyer@student.academy.edu',    '+91 90000 10103', '2009-01-25', 'MALE',   'Grade 11', 'B', '7 Temple Street, Jayanagar',    'Bengaluru',  'Ganesh Iyer',     '+91 90000 20103', 'ganesh.iyer@gmail.com',  '2024-06-12', 'ACTIVE'),
- (4,  'ACAD-1104', 'Ananya',    'Nair',     'ananya.nair@student.academy.edu',   '+91 90000 10104', '2009-11-30', 'FEMALE', 'Grade 11', 'B', '88 Coral Ridge, Koramangala',   'Bengaluru',  'Vinod Nair',      '+91 90000 20104', 'vinod.nair@gmail.com',   '2024-06-12', 'ACTIVE'),
- (5,  'ACAD-1201', 'Vivaan',    'Gupta',    'vivaan.gupta@student.academy.edu',  '+91 90000 10105', '2008-03-17', 'MALE',   'Grade 12', 'A', '3 Lake View, Whitefield',       'Bengaluru',  'Amit Gupta',      '+91 90000 20105', 'amit.gupta@gmail.com',   '2023-06-05', 'ACTIVE'),
- (6,  'ACAD-1202', 'Ishita',    'Rao',      'ishita.rao@student.academy.edu',    '+91 90000 10106', '2008-07-08', 'FEMALE', 'Grade 12', 'A', '21 Ashoka Nagar, HSR Layout',   'Bengaluru',  'Sudha Rao',       '+91 90000 20106', 'sudha.rao@gmail.com',    '2023-06-05', 'ACTIVE'),
- (7,  'ACAD-1203', 'Kabir',     'Singh',    'kabir.singh@student.academy.edu',   '+91 90000 10107', '2008-02-21', 'MALE',   'Grade 12', 'B', '9 Hillcrest, Hebbal',           'Bengaluru',  'Harpreet Singh',  '+91 90000 20107', 'harpreet.singh@gmail.com','2023-06-08', 'ACTIVE'),
- (8,  'ACAD-1204', 'Meera',     'Pillai',   'meera.pillai@student.academy.edu',  '+91 90000 10108', '2008-09-14', 'FEMALE', 'Grade 12', 'B', '33 Spice Garden, Banashankari', 'Bengaluru',  'Deepa Pillai',    '+91 90000 20108', 'deepa.pillai@gmail.com', '2023-06-08', 'SUSPENDED'),
- (9,  'ACAD-1001', 'Siddharth', 'Verma',    'siddharth.verma@student.academy.edu','+91 90000 10109','2010-12-01', 'MALE',   'Grade 10', 'A', '5 Green Park, Kengeri',         'Bengaluru',  'Anil Verma',      '+91 90000 20109', 'anil.verma@gmail.com',   '2025-06-02', 'ACTIVE'),
- (10, 'ACAD-1002', 'Aditi',     'Joshi',    'aditi.joshi@student.academy.edu',   '+91 90000 10110', '2010-05-19', 'FEMALE', 'Grade 10', 'A', '17 River Road, Yelahanka',      'Bengaluru',  'Mahesh Joshi',    '+91 90000 20110', 'mahesh.joshi@gmail.com', '2025-06-02', 'ACTIVE'),
- (11, 'ACAD-0901', 'Arjun',     'Reddy',    'arjun.reddy@student.academy.edu',   '+91 90000 10111', '2011-06-27', 'MALE',   'Grade 9',  'B', '62 Orchid Enclave, Electronic City','Bengaluru','Latha Reddy',   '+91 90000 20111', 'latha.reddy@gmail.com',  '2025-06-04', 'ACTIVE'),
- (12, 'ACAD-0902', 'Sneha',     'Kulkarni', 'sneha.kulkarni@student.academy.edu','+91 90000 10112', '2011-10-09', 'FEMALE', 'Grade 9',  'B', '4 Garden Row, Rajajinagar',     'Bengaluru',  'Prakash Kulkarni','+91 90000 20112', 'prakash.k@gmail.com',    '2025-06-04', 'ACTIVE');
+ (1,  'ACAD-1101', 'Aarav',     'Menon',    'aarav.menon@student.academy.edu',   '+91 90000 10101', '2009-04-12', 'MALE',   'Full Stack Java', 'A', '12 Palm Grove, Indiranagar',    'Bengaluru',  'Ravi Menon',      '+91 90000 20101', 'ravi.menon@gmail.com',   '2024-06-10', 'ACTIVE'),
+ (2,  'ACAD-1102', 'Diya',      'Sharma',   'diya.sharma@student.academy.edu',   '+91 90000 10102', '2009-08-03', 'FEMALE', 'Full Stack Java', 'A', '45 MG Road, Sector 2',          'Bengaluru',  'Nikhil Sharma',   '+91 90000 20102', 'nikhil.sharma@gmail.com','2024-06-10', 'ACTIVE'),
+ (3,  'ACAD-1103', 'Rohan',     'Iyer',     'rohan.iyer@student.academy.edu',    '+91 90000 10103', '2009-01-25', 'MALE',   'Full Stack Java', 'B', '7 Temple Street, Jayanagar',    'Bengaluru',  'Ganesh Iyer',     '+91 90000 20103', 'ganesh.iyer@gmail.com',  '2024-06-12', 'ACTIVE'),
+ (4,  'ACAD-1104', 'Ananya',    'Nair',     'ananya.nair@student.academy.edu',   '+91 90000 10104', '2009-11-30', 'FEMALE', 'Full Stack Java', 'B', '88 Coral Ridge, Koramangala',   'Bengaluru',  'Vinod Nair',      '+91 90000 20104', 'vinod.nair@gmail.com',   '2024-06-12', 'ACTIVE'),
+ (5,  'ACAD-1201', 'Vivaan',    'Gupta',    'vivaan.gupta@student.academy.edu',  '+91 90000 10105', '2008-03-17', 'MALE',   'Full Stack Python', 'A', '3 Lake View, Whitefield',       'Bengaluru',  'Amit Gupta',      '+91 90000 20105', 'amit.gupta@gmail.com',   '2023-06-05', 'ACTIVE'),
+ (6,  'ACAD-1202', 'Ishita',    'Rao',      'ishita.rao@student.academy.edu',    '+91 90000 10106', '2008-07-08', 'FEMALE', 'Full Stack Python', 'A', '21 Ashoka Nagar, HSR Layout',   'Bengaluru',  'Sudha Rao',       '+91 90000 20106', 'sudha.rao@gmail.com',    '2023-06-05', 'ACTIVE'),
+ (7,  'ACAD-1203', 'Kabir',     'Singh',    'kabir.singh@student.academy.edu',   '+91 90000 10107', '2008-02-21', 'MALE',   'Full Stack Python', 'B', '9 Hillcrest, Hebbal',           'Bengaluru',  'Harpreet Singh',  '+91 90000 20107', 'harpreet.singh@gmail.com','2023-06-08', 'ACTIVE'),
+ (8,  'ACAD-1204', 'Meera',     'Pillai',   'meera.pillai@student.academy.edu',  '+91 90000 10108', '2008-09-14', 'FEMALE', 'Full Stack Python', 'B', '33 Spice Garden, Banashankari', 'Bengaluru',  'Deepa Pillai',    '+91 90000 20108', 'deepa.pillai@gmail.com', '2023-06-08', 'SUSPENDED'),
+ (9,  'ACAD-1001', 'Siddharth', 'Verma',    'siddharth.verma@student.academy.edu','+91 90000 10109','2010-12-01', 'MALE',   'Data Analysis', 'A', '5 Green Park, Kengeri',         'Bengaluru',  'Anil Verma',      '+91 90000 20109', 'anil.verma@gmail.com',   '2025-06-02', 'ACTIVE'),
+ (10, 'ACAD-1002', 'Aditi',     'Joshi',    'aditi.joshi@student.academy.edu',   '+91 90000 10110', '2010-05-19', 'FEMALE', 'Data Analysis', 'A', '17 River Road, Yelahanka',      'Bengaluru',  'Mahesh Joshi',    '+91 90000 20110', 'mahesh.joshi@gmail.com', '2025-06-02', 'ACTIVE'),
+ (11, 'ACAD-0901', 'Arjun',     'Reddy',    'arjun.reddy@student.academy.edu',   '+91 90000 10111', '2011-06-27', 'MALE',   'UI/UX',  'B', '62 Orchid Enclave, Electronic City','Bengaluru','Latha Reddy',   '+91 90000 20111', 'latha.reddy@gmail.com',  '2025-06-04', 'ACTIVE'),
+ (12, 'ACAD-0902', 'Sneha',     'Kulkarni', 'sneha.kulkarni@student.academy.edu','+91 90000 10112', '2011-10-09', 'FEMALE', 'UI/UX',  'B', '4 Garden Row, Rajajinagar',     'Bengaluru',  'Prakash Kulkarni','+91 90000 20112', 'prakash.k@gmail.com',    '2025-06-04', 'ACTIVE');
 
--- Grade 11 section A (mon..fri)
+-- Full Stack Java section A (mon..fri)
 INSERT IGNORE INTO class_schedules (id, subject_id, teacher_id, class_level, section, room, day_of_week, start_time, end_time, term) VALUES
- (1,  1, 1, 'Grade 11', 'A', 'Block A - 201', 1, '08:00', '08:45', '2026-ODD'),
- (2,  2, 2, 'Grade 11', 'A', 'Block A - 201', 1, '08:50', '09:35', '2026-ODD'),
- (3,  3, 3, 'Grade 11', 'A', 'Lab 1',         1, '10:00', '10:45', '2026-ODD'),
- (4,  5, 5, 'Grade 11', 'A', 'Block B - 110', 1, '11:00', '11:45', '2026-ODD'),
- (5,  1, 1, 'Grade 11', 'A', 'Block A - 201', 2, '08:00', '08:45', '2026-ODD'),
- (6,  6, 4, 'Grade 11', 'A', 'Lab 3',         2, '09:40', '10:25', '2026-ODD'),
- (7,  4, 6, 'Grade 11', 'A', 'Lab 2',         3, '08:00', '08:45', '2026-ODD'),
- (8,  2, 2, 'Grade 11', 'A', 'Block A - 201', 3, '11:00', '11:45', '2026-ODD'),
- (9,  3, 3, 'Grade 11', 'A', 'Lab 1',         4, '08:50', '09:35', '2026-ODD'),
- (10, 1, 1, 'Grade 11', 'A', 'Block A - 201', 4, '10:00', '10:45', '2026-ODD'),
- (11, 8, 7, 'Grade 11', 'A', 'Sports Ground', 5, '08:00', '09:30', '2026-ODD'),
- (12, 7, 7, 'Grade 11', 'A', 'Block A - 201', 5, '09:40', '10:25', '2026-ODD');
+ (1,  1, 1, 'Full Stack Java', 'A', 'Block A - 201', 1, '08:00', '08:45', '2026-ODD'),
+ (2,  2, 2, 'Full Stack Java', 'A', 'Block A - 201', 1, '08:50', '09:35', '2026-ODD'),
+ (3,  3, 3, 'Full Stack Java', 'A', 'Lab 1',         1, '10:00', '10:45', '2026-ODD'),
+ (4,  5, 5, 'Full Stack Java', 'A', 'Block B - 110', 1, '11:00', '11:45', '2026-ODD'),
+ (5,  1, 1, 'Full Stack Java', 'A', 'Block A - 201', 2, '08:00', '08:45', '2026-ODD'),
+ (6,  6, 4, 'Full Stack Java', 'A', 'Lab 3',         2, '09:40', '10:25', '2026-ODD'),
+ (7,  4, 6, 'Full Stack Java', 'A', 'Lab 2',         3, '08:00', '08:45', '2026-ODD'),
+ (8,  2, 2, 'Full Stack Java', 'A', 'Block A - 201', 3, '11:00', '11:45', '2026-ODD'),
+ (9,  3, 3, 'Full Stack Java', 'A', 'Lab 1',         4, '08:50', '09:35', '2026-ODD'),
+ (10, 1, 1, 'Full Stack Java', 'A', 'Block A - 201', 4, '10:00', '10:45', '2026-ODD'),
+ (11, 8, 7, 'Full Stack Java', 'A', 'Sports Ground', 5, '08:00', '09:30', '2026-ODD'),
+ (12, 7, 7, 'Full Stack Java', 'A', 'Block A - 201', 5, '09:40', '10:25', '2026-ODD');
 
--- Grade 11 section B
+-- Full Stack Java section B
 INSERT IGNORE INTO class_schedules (id, subject_id, teacher_id, class_level, section, room, day_of_week, start_time, end_time, term) VALUES
- (13, 1, 1, 'Grade 11', 'B', 'Block A - 202', 1, '09:40', '10:25', '2026-ODD'),
- (14, 2, 2, 'Grade 11', 'B', 'Block A - 202', 1, '11:00', '11:45', '2026-ODD'),
- (15, 3, 3, 'Grade 11', 'B', 'Lab 1',         2, '11:00', '11:45', '2026-ODD'),
- (16, 5, 5, 'Grade 11', 'B', 'Block B - 110', 3, '08:50', '09:35', '2026-ODD'),
- (17, 6, 4, 'Grade 11', 'B', 'Lab 3',         3, '10:00', '10:45', '2026-ODD'),
- (18, 4, 6, 'Grade 11', 'B', 'Lab 2',         4, '11:00', '11:45', '2026-ODD'),
- (19, 7, 7, 'Grade 11', 'B', 'Block A - 202', 5, '08:00', '08:45', '2026-ODD');
+ (13, 1, 1, 'Full Stack Java', 'B', 'Block A - 202', 1, '09:40', '10:25', '2026-ODD'),
+ (14, 2, 2, 'Full Stack Java', 'B', 'Block A - 202', 1, '11:00', '11:45', '2026-ODD'),
+ (15, 3, 3, 'Full Stack Java', 'B', 'Lab 1',         2, '11:00', '11:45', '2026-ODD'),
+ (16, 5, 5, 'Full Stack Java', 'B', 'Block B - 110', 3, '08:50', '09:35', '2026-ODD'),
+ (17, 6, 4, 'Full Stack Java', 'B', 'Lab 3',         3, '10:00', '10:45', '2026-ODD'),
+ (18, 4, 6, 'Full Stack Java', 'B', 'Lab 2',         4, '11:00', '11:45', '2026-ODD'),
+ (19, 7, 7, 'Full Stack Java', 'B', 'Block A - 202', 5, '08:00', '08:45', '2026-ODD');
 
--- Grade 12 section A
+-- Full Stack Python section A
 INSERT IGNORE INTO class_schedules (id, subject_id, teacher_id, class_level, section, room, day_of_week, start_time, end_time, term) VALUES
- (20, 1, 1, 'Grade 12', 'A', 'Block A - 301', 1, '10:00', '10:45', '2026-ODD'),
- (21, 2, 2, 'Grade 12', 'A', 'Block A - 301', 2, '08:00', '08:45', '2026-ODD'),
- (22, 3, 3, 'Grade 12', 'A', 'Lab 1',         2, '10:00', '10:45', '2026-ODD'),
- (23, 6, 4, 'Grade 12', 'A', 'Lab 3',         3, '08:00', '08:45', '2026-ODD'),
- (24, 5, 5, 'Grade 12', 'A', 'Block B - 110', 4, '08:00', '08:45', '2026-ODD'),
- (25, 4, 6, 'Grade 12', 'A', 'Lab 2',         4, '10:00', '10:45', '2026-ODD'),
- (26, 7, 7, 'Grade 12', 'A', 'Block A - 301', 5, '10:00', '10:45', '2026-ODD');
+ (20, 1, 1, 'Full Stack Python', 'A', 'Block A - 301', 1, '10:00', '10:45', '2026-ODD'),
+ (21, 2, 2, 'Full Stack Python', 'A', 'Block A - 301', 2, '08:00', '08:45', '2026-ODD'),
+ (22, 3, 3, 'Full Stack Python', 'A', 'Lab 1',         2, '10:00', '10:45', '2026-ODD'),
+ (23, 6, 4, 'Full Stack Python', 'A', 'Lab 3',         3, '08:00', '08:45', '2026-ODD'),
+ (24, 5, 5, 'Full Stack Python', 'A', 'Block B - 110', 4, '08:00', '08:45', '2026-ODD'),
+ (25, 4, 6, 'Full Stack Python', 'A', 'Lab 2',         4, '10:00', '10:45', '2026-ODD'),
+ (26, 7, 7, 'Full Stack Python', 'A', 'Block A - 301', 5, '10:00', '10:45', '2026-ODD');
 
--- Grade 12 section B
+-- Full Stack Python section B
 INSERT IGNORE INTO class_schedules (id, subject_id, teacher_id, class_level, section, room, day_of_week, start_time, end_time, term) VALUES
- (27, 1, 1, 'Grade 12', 'B', 'Block A - 302', 1, '11:00', '11:45', '2026-ODD'),
- (28, 2, 2, 'Grade 12', 'B', 'Block A - 302', 3, '09:40', '10:25', '2026-ODD'),
- (29, 3, 3, 'Grade 12', 'B', 'Lab 1',         4, '11:00', '11:45', '2026-ODD'),
- (30, 6, 4, 'Grade 12', 'B', 'Lab 3',         5, '11:00', '11:45', '2026-ODD');
+ (27, 1, 1, 'Full Stack Python', 'B', 'Block A - 302', 1, '11:00', '11:45', '2026-ODD'),
+ (28, 2, 2, 'Full Stack Python', 'B', 'Block A - 302', 3, '09:40', '10:25', '2026-ODD'),
+ (29, 3, 3, 'Full Stack Python', 'B', 'Lab 1',         4, '11:00', '11:45', '2026-ODD'),
+ (30, 6, 4, 'Full Stack Python', 'B', 'Lab 3',         5, '11:00', '11:45', '2026-ODD');
 
--- Grade 10 section A
+-- Data Analysis section A
 INSERT IGNORE INTO class_schedules (id, subject_id, teacher_id, class_level, section, room, day_of_week, start_time, end_time, term) VALUES
- (31, 1, 1, 'Grade 10', 'A', 'Block B - 101', 1, '08:00', '08:45', '2026-ODD'),
- (32, 2, 2, 'Grade 10', 'A', 'Block B - 101', 2, '08:50', '09:35', '2026-ODD'),
- (33, 7, 7, 'Grade 10', 'A', 'Block B - 101', 3, '08:00', '08:45', '2026-ODD'),
- (34, 5, 5, 'Grade 10', 'A', 'Block B - 110', 4, '08:50', '09:35', '2026-ODD'),
- (35, 8, 7, 'Grade 10', 'A', 'Sports Ground', 5, '11:30', '12:30', '2026-ODD');
+ (31, 1, 1, 'Data Analysis', 'A', 'Block B - 101', 1, '08:00', '08:45', '2026-ODD'),
+ (32, 2, 2, 'Data Analysis', 'A', 'Block B - 101', 2, '08:50', '09:35', '2026-ODD'),
+ (33, 7, 7, 'Data Analysis', 'A', 'Block B - 101', 3, '08:00', '08:45', '2026-ODD'),
+ (34, 5, 5, 'Data Analysis', 'A', 'Block B - 110', 4, '08:50', '09:35', '2026-ODD'),
+ (35, 8, 7, 'Data Analysis', 'A', 'Sports Ground', 5, '11:30', '12:30', '2026-ODD');
 
--- Grade 9 section B
+-- UI/UX section B
 INSERT IGNORE INTO class_schedules (id, subject_id, teacher_id, class_level, section, room, day_of_week, start_time, end_time, term) VALUES
- (36, 1, 1, 'Grade 9',  'B', 'Block B - 102', 1, '08:50', '09:35', '2026-ODD'),
- (37, 4, 6, 'Grade 9',  'B', 'Lab 2',         2, '08:00', '08:45', '2026-ODD'),
- (38, 6, 4, 'Grade 9',  'B', 'Lab 3',         3, '11:00', '11:45', '2026-ODD'),
- (39, 5, 5, 'Grade 9',  'B', 'Block B - 110', 4, '09:40', '10:25', '2026-ODD'),
- (40, 7, 7, 'Grade 9',  'B', 'Block B - 102', 5, '08:50', '09:35', '2026-ODD');
+ (36, 1, 1, 'UI/UX',  'B', 'Block B - 102', 1, '08:50', '09:35', '2026-ODD'),
+ (37, 4, 6, 'UI/UX',  'B', 'Lab 2',         2, '08:00', '08:45', '2026-ODD'),
+ (38, 6, 4, 'UI/UX',  'B', 'Lab 3',         3, '11:00', '11:45', '2026-ODD'),
+ (39, 5, 5, 'UI/UX',  'B', 'Block B - 110', 4, '09:40', '10:25', '2026-ODD'),
+ (40, 7, 7, 'UI/UX',  'B', 'Block B - 102', 5, '08:50', '09:35', '2026-ODD');
 
 INSERT IGNORE INTO enrollments (id, student_id, subject_id, enrolled_at) VALUES
  (1, 1, 1, '2024-06-10'), (2, 1, 2, '2024-06-10'), (3, 1, 3, '2024-06-10'), (4, 1, 5, '2024-06-10'), (5, 1, 6, '2024-06-10'),
