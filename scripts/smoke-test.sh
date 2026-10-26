@@ -81,13 +81,13 @@ check "drop subject" 200 DELETE "/api/students/$ENROLL_ID/subjects/1"
 check "missing student 404" 404 GET /api/students/999999
 check "invalid payload 400" 400 POST /api/students '{"rollNumber":"","firstName":"","email":"nope","classLevel":"","status":"WEIRD"}'
 
-CLASH='{"subjectId":2,"teacherId":2,"classLevel":"Full Stack Java","section":"A","room":"Block A - 201","dayOfWeek":1,"startTime":"08:10:00","endTime":"08:40:00","term":"2026-ODD"}'
+CLASH='{"subjectId":3,"teacherId":5,"classLevel":"Full Stack Java","section":"A","room":"Block A - 201","dayOfWeek":1,"startTime":"08:10:00","endTime":"08:40:00","term":"2026-ODD"}'
 check "class time clash rejected" 409 POST /api/schedules "$CLASH"
-TCLASH='{"subjectId":5,"teacherId":2,"classLevel":"Full Stack Python","section":"B","room":"Lab 9","dayOfWeek":2,"startTime":"08:00:00","endTime":"08:45:00","term":"2026-ODD"}'
+TCLASH='{"subjectId":6,"teacherId":3,"classLevel":"Full Stack Python","section":"B","room":"Lab 9","dayOfWeek":2,"startTime":"08:00:00","endTime":"08:45:00","term":"2026-ODD"}'
 check "teacher double booking rejected" 409 POST /api/schedules "$TCLASH"
-BADTIME='{"subjectId":5,"teacherId":5,"classLevel":"UI/UX","section":"A","room":"Room 1","dayOfWeek":3,"startTime":"11:00:00","endTime":"10:00:00","term":"2026-ODD"}'
+BADTIME='{"subjectId":13,"teacherId":7,"classLevel":"UI/UX","section":"A","room":"Room 1","dayOfWeek":3,"startTime":"11:00:00","endTime":"10:00:00","term":"2026-ODD"}'
 check "end before start rejected" 400 POST /api/schedules "$BADTIME"
-GOOD='{"subjectId":8,"teacherId":5,"classLevel":"UI/UX","section":"A","room":"Room 7","dayOfWeek":3,"startTime":"13:00:00","endTime":"13:45:00","term":"2026-ODD"}'
+GOOD='{"subjectId":13,"teacherId":7,"classLevel":"UI/UX","section":"A","room":"Room 7","dayOfWeek":3,"startTime":"13:00:00","endTime":"13:45:00","term":"2026-ODD"}'
 check "valid session created" 200 POST /api/schedules "$GOOD"
 SESSION_ID=$(first_id)
 check "session updated" 200 PUT "/api/schedules/$SESSION_ID" "$(echo "$GOOD" | sed 's/"room":"Room 7"/"room":"Room 8"/')"

@@ -46,6 +46,19 @@ On every start the app also runs:
 - `src/main/resources/db/data.sql` — demo students, faculty, subjects, timetable slots and contacts
   (`INSERT IGNORE`, so restarting never duplicates rows)
 
+The demo catalogue is organised as four programmes. `class_level` holds the programme name, and each
+programme owns one track of four subjects and its own faculty:
+
+| Programme | Subjects | Faculty |
+| --- | --- | --- |
+| Full Stack Java | Java Core and OOP, Spring Boot REST APIs, Hibernate and JPA, JavaScript Frontend | Suresh Babu, Priya Desai |
+| Full Stack Python | Python Foundations, Django Web Development, FastAPI Microservices, React Frontend Basics | Neelam Kaur |
+| Data Analysis | Applied Statistics, SQL for Analysts, Python for Data, Data Visualisation | Kavita Anand, Ramesh Naik |
+| UI/UX | Design Foundations, UX Research Methods, Interaction Design, Prototyping with Figma | Thomas Mathew, Farida Khan |
+
+Timetable sessions, enrolments and teacher departments all stay inside one track, so a student's
+profile never shows a subject from another programme.
+
 To load the database by hand instead:
 
 ```bash
