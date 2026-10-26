@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sign in · Academy Portal</title>
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+<div class="login-wrap">
+    <div class="login-card">
+        <div class="brand-mark">AC</div>
+        <h1>Academy Portal</h1>
+        <p>Student records, timetables and faculty contacts in one place.</p>
+
+        <div id="notice" class="banner" hidden></div>
+
+        <form id="login-form" autocomplete="off">
+            <div class="field">
+                <label for="username">Username</label>
+                <input id="username" name="username" type="text" autocomplete="username" required autofocus>
+            </div>
+            <div class="field">
+                <label for="password">Password</label>
+                <input id="password" name="password" type="password" autocomplete="current-password" required>
+            </div>
+            <button type="submit" class="btn-primary" id="signin">Sign in</button>
+        </form>
+
+        <div class="demo-accounts">
+            <h4>Demo accounts</h4>
+            <ul>
+                <li><code>admin</code> / <code>admin123</code> — full administration</li>
+                <li><code>teacher</code> / <code>teacher123</code> — student directory + own timetable</li>
+                <li><code>student</code> / <code>student123</code> — own profile only</li>
+            </ul>
+        </div>
+    </div>
+</div>
+<script src="js/login.js"></script>
+</body>
+</html>
