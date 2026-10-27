@@ -27,7 +27,7 @@
             Portal.mountShell({
                 active: 'schedule',
                 title: 'My weekly timetable',
-                subtitle: `${esc(profile.classLevel)}${profile.section ? ' · Section ' + esc(profile.section) : ''} — your class only`,
+                subtitle: `${esc(profile.classLevel)}${profile.section ? ' · Section ' + esc(profile.section) : ''} · your class only`,
                 actions: '<a class="btn btn-ghost" href="student-profile.html?me=1">My profile</a>',
             });
             renderGrid();
@@ -95,7 +95,7 @@
                     <label for="fsub">Subject</label>
                     <select id="fsub">
                         <option value="">Any subject</option>
-                        ${state.subjects.map(s => `<option value="${s.id}"${String(s.id) === state.subjectId ? ' selected' : ''}>${esc(s.code)} — ${esc(s.name)}</option>`).join('')}
+                        ${state.subjects.map(s => `<option value="${s.id}"${String(s.id) === state.subjectId ? ' selected' : ''}>${esc(s.code)} · ${esc(s.name)}</option>`).join('')}
                     </select>
                 </div>
                 <button class="btn btn-ghost" id="reset">Clear</button>
@@ -149,7 +149,7 @@
                                 <div class="slots">
                                     ${slots.map(row => `
                                         <div class="slot" ${admin ? `data-edit="${row.id}" style="cursor:pointer"` : ''}>
-                                            <div class="time">${formatTime(row.startTime)}–${formatTime(row.endTime)}</div>
+                                            <div class="time">${formatTime(row.startTime)}-${formatTime(row.endTime)}</div>
                                             <div class="subj">${esc(row.subjectName)} <span class="badge">${esc(row.subjectCode)}</span></div>
                                             <div class="who">${esc(row.teacherName)}</div>
                                             <div class="room">${esc(row.classLevel)} · Sec ${esc(row.section)} · ${esc(row.room || 'room not set')}</div>
@@ -185,7 +185,7 @@
                 label: 'Subject',
                 type: 'select',
                 required: true,
-                options: state.subjects.map(s => ({ value: String(s.id), label: `${s.code} — ${s.name}` })),
+                options: state.subjects.map(s => ({ value: String(s.id), label: `${s.code} · ${s.name}` })),
             },
             {
                 name: 'teacherId',

@@ -170,8 +170,8 @@
                                     <div class="cell-sub">${esc(s.rollNumber)}</div>
                                     <div class="cell-sub">${esc(s.email || '')}</div>
                                 </td>
-                                <td>${esc(s.classLevel || '—')}</td>
-                                <td>${esc(s.section || '—')}</td>
+                                <td>${esc(s.classLevel || '-')}</td>
+                                <td>${esc(s.section || '-')}</td>
                                 <td>${statusBadge(s.status)}</td>
                                 <td class="num">
                                     <button class="btn btn-ghost btn-sm" data-preview="${s.id}">Preview</button>

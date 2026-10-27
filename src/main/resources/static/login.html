@@ -3,13 +3,17 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Sign in to the academy portal for student records, timetables and faculty contacts.">
+    <meta name="theme-color" content="#101a33">
     <title>Sign in · Academy Portal</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <script src="js/theme.js"></script>
     <link rel="stylesheet" href="css/main.css">
 </head>
 <body>
 <div class="login-wrap">
     <div class="login-card">
-        <div class="brand-mark">AC</div>
+        <div class="brand-mark" aria-hidden="true">AC</div>
         <h1>Academy Portal</h1>
         <p>Student records, timetables and faculty contacts in one place.</p>
 
@@ -27,14 +31,18 @@
             <button type="submit" class="btn-primary" id="signin">Sign in</button>
         </form>
 
-        <div class="demo-accounts">
-            <h4>Demo accounts</h4>
-            <ul>
-                <li><code>admin</code> / <code>admin123</code> — full administration</li>
-                <li><code>suresh.babu@academy.edu</code> / <code>PASSWORD</code> — teacher portal (any teacher email works)</li>
-                <li><code>aarav.menon@student.academy.edu</code> / <code>PASSWORD</code> — student portal (any student email works)</li>
-            </ul>
+        <p class="login-help">Accounts are issued by the academy office. If your sign-in does not work, contact the office at <a href="mailto:office@academy.edu">office@academy.edu</a>.</p>
+    </div>
+
+    <div class="login-foot">
+        <div class="theme-picker">
+            <label for="theme-select">Colour theme</label>
+            <select id="theme-select" data-theme-picker aria-label="Colour theme"></select>
         </div>
+        <nav aria-label="Legal">
+            <a href="privacy.html">Privacy policy</a>
+            <a href="terms.html">Terms and conditions</a>
+        </nav>
     </div>
 </div>
 <script src="js/login.js"></script>

@@ -29,7 +29,8 @@ public class SecurityConfig {
                 .csrfTokenRequestHandler(requestHandler))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/login.html", "/css/**", "/js/**", "/img/**", "/favicon.ico",
+                        .requestMatchers("/login.html", "/privacy.html", "/terms.html", "/css/**", "/js/**",
+                                "/img/**", "/favicon.ico", "/favicon.svg",
                                 "/api/auth/csrf", "/error").permitAll()
                         .requestMatchers("/api/students/**", "/api/teachers/**", "/api/schedules/**",
                                 "/api/contacts/**", "/api/subjects/**").authenticated()

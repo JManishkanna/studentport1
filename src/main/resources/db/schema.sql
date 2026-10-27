@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS app_users (
     password_hash VARCHAR(100) NOT NULL,
     full_name     VARCHAR(120) NOT NULL,
     email         VARCHAR(120),
+    phone         VARCHAR(20),
     role          VARCHAR(20)  NOT NULL COMMENT 'ADMIN | TEACHER | STUDENT',
     student_id    BIGINT,
     teacher_id    BIGINT,
@@ -150,3 +151,17 @@ SET @add_password_flag = (
 PREPARE add_password_flag FROM @add_password_flag;
 EXECUTE add_password_flag;
 DEALLOCATE PREPARE add_password_flag;
+
+-- The administration line on the contacts page publishes a phone as well as a name and email,
+-- so accounts gained a phone column after the first release.
+SET @add_user_phone = (
+    SELECT IF(EXISTS(SELECT 1 FROM information_schema.COLUMNS
+                     WHERE TABLE_SCHEMA = DATABASE()
+                       AND TABLE_NAME = 'app_users'
+                       AND COLUMN_NAME = 'phone'),
+              'DO 0',
+              'ALTER TABLE app_users ADD COLUMN phone VARCHAR(20) AFTER email')
+);
+PREPARE add_user_phone FROM @add_user_phone;
+EXECUTE add_user_phone;
+DEALLOCATE PREPARE add_user_phone;

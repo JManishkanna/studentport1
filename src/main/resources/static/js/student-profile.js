@@ -71,11 +71,11 @@
                     <div class="card-body">
                         <dl class="facts">
                             <dt>Email</dt><dd>${esc(student.email)}</dd>
-                            <dt>Phone</dt><dd>${esc(student.phone || '—')}</dd>
-                            <dt>Address</dt><dd>${esc(student.addressLine || '—')}${student.city ? ', ' + esc(student.city) : ''}</dd>
-                            <dt>Guardian</dt><dd>${esc(student.guardianName || '—')}</dd>
-                            <dt>Guardian phone</dt><dd>${esc(student.guardianPhone || '—')}</dd>
-                            <dt>Guardian email</dt><dd>${esc(student.guardianEmail || '—')}</dd>
+                            <dt>Phone</dt><dd>${esc(student.phone || '-')}</dd>
+                            <dt>Address</dt><dd>${esc(student.addressLine || '-')}${student.city ? ', ' + esc(student.city) : ''}</dd>
+                            <dt>Guardian</dt><dd>${esc(student.guardianName || '-')}</dd>
+                            <dt>Guardian phone</dt><dd>${esc(student.guardianPhone || '-')}</dd>
+                            <dt>Guardian email</dt><dd>${esc(student.guardianEmail || '-')}</dd>
                         </dl>
                     </div>
                 </div>
@@ -109,7 +109,7 @@
                                     <div class="slots">
                                         ${slots.map(row => `
                                             <div class="slot">
-                                                <div class="time">${formatTime(row.startTime)}–${formatTime(row.endTime)}</div>
+                                                <div class="time">${formatTime(row.startTime)}-${formatTime(row.endTime)}</div>
                                                 <div class="subj">${esc(row.subjectName)}</div>
                                                 <div class="who">${esc(row.teacherName)}</div>
                                                 <div class="room">${esc(row.room || 'room not set')}</div>
@@ -151,7 +151,7 @@
                                 ${classmates.map(c => `<tr${canAdmin ? ` class="clickable" data-open="${c.id}"` : ''}>
                                     <td><div class="cell-strong">${esc(c.firstName)} ${esc(c.lastName)}</div><div class="cell-sub">${esc(c.email)}</div></td>
                                     <td>${esc(c.rollNumber)}</td>
-                                    <td><div class="cell-strong">${esc(c.guardianName || '—')}</div><div class="cell-sub">${esc(c.guardianPhone || '')}</div></td>
+                                    <td><div class="cell-strong">${esc(c.guardianName || '-')}</div><div class="cell-sub">${esc(c.guardianPhone || '')}</div></td>
                                 </tr>`).join('') || `<tr><td colspan="3">${Portal.emptyState('Nobody else in this class', '')}</td></tr>`}
                             </tbody>
                         </table>
@@ -258,7 +258,7 @@
         const enrolled = new Set(await get(`api/students/${student.id}/subjects`).map(s => s.subjectId));
         const options = subjects
             .filter(s => !enrolled.has(s.id))
-            .map(s => ({ value: String(s.id), label: `${s.code} — ${s.name}` }));
+            .map(s => ({ value: String(s.id), label: `${s.code} · ${s.name}` }));
 
         if (!options.length) {
             toast('Every subject in the catalog is already enrolled.');

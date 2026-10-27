@@ -117,9 +117,9 @@
                                 </div>
                                 <dl class="facts" style="margin-top:12px">
                                     <dt>Email</dt><dd style="word-break:break-all">${esc(t.email)}</dd>
-                                    <dt>Phone</dt><dd>${esc(t.phone || '—')}</dd>
-                                    <dt>Office</dt><dd>${esc(t.officeRoom || '—')}</dd>
-                                    <dt>Teaches</dt><dd>${esc(t.specialization || '—')}</dd>
+                                    <dt>Phone</dt><dd>${esc(t.phone || '-')}</dd>
+                                    <dt>Office</dt><dd>${esc(t.officeRoom || '-')}</dd>
+                                    <dt>Teaches</dt><dd>${esc(t.specialization || '-')}</dd>
                                 </dl>
                                 <div class="chip-row" style="margin-top:14px">
                                     ${statusBadge(t.status)}

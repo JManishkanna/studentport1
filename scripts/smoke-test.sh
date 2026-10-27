@@ -166,7 +166,11 @@ expect_in "admin sees a roll number" 'ACAD-1101'
 expect_in "admin sees a guardian line" '+91 90000 20101'
 expect_in "rows carry a programme to filter by" '"group":"Data Analysis"'
 expect_in "rows carry a division to filter by" '"division":"Section B"'
-expect_out "admin list is not padded with admins" '"kind":"ADMINISTRATION"'
+expect_in "admin sees the administration contact" '"kind":"ADMINISTRATION"'
+expect_in "administration contact carries the mailbox" 'admin@academy.edu'
+check "administration details updated" 200 PUT /api/contacts/administration '{"fullName":"Portal Administrator","email":"admin@academy.edu","phone":"+91 80 4000 1010"}'
+expect_in "administration phone is published" '"phone":"+91 80 4000 1010"'
+check "administration name required" 400 PUT /api/contacts/administration '{"fullName":"","email":"admin@academy.edu"}'
 
 mkdir -p target/smoke
 printf 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' \
@@ -307,9 +311,12 @@ expect_in "teacher gets class division" 'Full Stack Java - Section B'
 expect_in "teacher gets guardian number" '+91 90000 20103'
 expect_in "teacher rows group by programme" '"group":"Full Stack Java"'
 expect_in "teacher rows split by division" '"division":"Section A"'
+expect_in "teacher reaches the administration contact" '"kind":"ADMINISTRATION"'
 expect_out "teacher cannot reach another programme" 'ACAD-1203'
 expect_out "teacher list holds no faculty" '"kind":"FACULTY"'
 check "cannot admit student" 403 POST /api/students "$STUDENT"
+check "cannot edit a student record" 403 PUT /api/students/1 "$STUDENT"
+check "cannot edit administration details" 403 PUT /api/contacts/administration '{"fullName":"Not Allowed","email":"x@y.edu"}'
 check "cannot edit session" 403 PUT "/api/schedules/1" "$GOOD"
 check "cannot add contact" 403 POST /api/contacts "$CONTACT"
 check "cannot delete student" 403 DELETE "/api/students/$ENROLL_ID"
@@ -341,12 +348,14 @@ expect_in "student reaches subject faculty" 'Suresh Babu'
 expect_in "student gets faculty number" '+91 98450 11001'
 expect_in "student sees what they teach" 'Java Core and OOP'
 expect_in "student reaches admin mailbox" 'admin@academy.edu'
+expect_in "student sees the administration contact" '"kind":"ADMINISTRATION"'
 expect_out "student list is not fellow students" '"kind":"STUDENT"'
 expect_out "student cannot reach another programme faculty" 'Neelam Kaur'
 check "cannot read other student" 403 GET /api/students/2
 check "cannot browse roster" 403 GET /api/students
 check "cannot read other schedule" 403 GET /api/students/2/schedule
 check "cannot edit own record" 403 PUT /api/students/1 "$STUDENT"
+check "student cannot edit administration details" 403 PUT /api/contacts/administration '{"fullName":"Not Allowed","email":"x@y.edu"}'
 check "cannot read a sign-in" 403 GET /api/students/1/login
 check "cannot reset a password" 403 POST /api/students/1/login/reset '{}'
 check "cannot add teacher" 403 POST /api/teachers '{"employeeCode":"X","firstName":"a","lastName":"b","department":"c","email":"x@y.edu"}'
@@ -364,6 +373,7 @@ rm -f "$JAR"
 check "dashboard needs login" 401 GET /api/dashboard
 check "students need login" 401 GET /api/students
 check "people list needs login" 401 GET /api/contacts/people
+check "administration update needs login" 401 PUT /api/contacts/administration '{"fullName":"X","email":"x@y.edu"}'
 check "teacher sign-in needs login" 401 GET /api/teachers/1/login
 check "certificates need login" 401 POST /api/certificates '{"studentIds":[1],"conferredOn":"2026-10-30"}'
 check "preview needs login" 401 POST /api/certificates/preview '{"studentIds":[1],"conferredOn":"2026-10-30"}'
@@ -372,6 +382,13 @@ check "password change needs login" 401 POST /api/auth/password '{"currentPasswo
 check "profile picture needs login" 401 GET /api/profile/photo/1
 check "portal page redirects" 302 GET /index.html
 check "sign-in page is public" 200 GET /login.html
+expect_out "sign-in page does not publish demo passwords" "admin123"
+check "privacy policy is public" 200 GET /privacy.html
+expect_in "privacy policy renders" "Privacy policy"
+check "terms are public" 200 GET /terms.html
+expect_in "terms render" "Terms and conditions"
+check "favicon is public" 200 GET /favicon.svg
+check "theme script is public" 200 GET /js/theme.js
 
 echo
 echo "cleanup"

@@ -43,8 +43,10 @@ export MYSQL_PASSWORD=your-password
 The JDBC URL uses `createDatabaseIfNotExist=true`, so the schema is created for you on first boot.
 On every start the app also runs:
 
-- `src/main/resources/db/schema.sql` — `CREATE TABLE IF NOT EXISTS` for all eight tables, plus a
-  guarded `ALTER TABLE` that adds `app_users.password_is_default` to databases created before it
+- `src/main/resources/db/schema.sql` — `CREATE TABLE IF NOT EXISTS` for all eight tables, plus
+  guarded `ALTER TABLE` migrations that add `app_users.password_is_default`, widen
+  `profile_photos.updated_at` to milliseconds and add `app_users.phone` to databases created before
+  those columns existed
 - `src/main/resources/db/data.sql` — demo students, faculty, subjects, timetable slots and contacts
   (`INSERT IGNORE`, so restarting never duplicates rows)
 
@@ -106,13 +108,15 @@ accurate.
 A one-time migration flag, `app_users.password_is_default`, records whether an account still carries
 the password the academy handed out. Students and teachers change it themselves on **Account
 settings** (current password + a new one of at least 8 characters); the flag clears, and from then
-on only a BCrypt hash exists.
+on only a BCrypt hash exists. The change takes effect at the next sign-in — the current session
+stays signed in.
 
 Administrators open a student's **Login** dialog from the register, or a teacher's from the faculty
 directory. It shows the username and either the default password or "chosen by the student/teacher".
 Because chosen passwords are only stored as hashes, they cannot be read back — the dialog can
 instead **Reset to default** (revealing the value once) or **Set a new password** and hand it over.
-Both write a fresh hash and update the flag.
+Both write a fresh hash and update the flag. Administrators change their own password from the same
+**Account settings** page every other role uses.
 
 ## 5. Pages
 
@@ -128,6 +132,11 @@ Both write a fresh hash and update the flag.
 | Contacts | `static/contacts.html` | Role-scoped people directory (see below) plus department desks and helplines grouped by category |
 | Certificates | `static/certificates.html` | ADMIN only: tick one or many graduates, preview the wording, then download the certificate PDFs |
 | Account settings | `static/account.html` | Every role: profile picture, sign-in details and a password change |
+| Privacy policy | `static/privacy.html` | Public: what the portal stores, who can see it, cookies, retention and how to ask for removal |
+| Terms and conditions | `static/terms.html` | Public: acceptable use, accounts, records and availability |
+
+The public pages, the sign-in page and every authenticated page share the same stylesheet and the
+six colour themes described in section 8. `favicon.svg` is declared in the head of every page.
 
 ## 6. REST API
 
@@ -159,6 +168,7 @@ from `GET /api/auth/csrf`).
 | `POST` `PUT` `DELETE` | `/api/schedules/**` | ADMIN |
 | `GET` | `/api/contacts`, `/api/contacts/categories`, `/api/subjects` | any signed-in user |
 | `GET` | `/api/contacts/people` | any signed-in user, scoped to their own classes |
+| `PUT` | `/api/contacts/administration` (`{fullName,email,phone}`) | ADMIN, own details |
 | `POST` `PUT` `DELETE` | `/api/contacts/**` | ADMIN |
 | `POST` | `/api/certificates` → `application/pdf` | ADMIN |
 | `POST` | `/api/certificates/preview` → the same pages as JSON | ADMIN |
@@ -219,12 +229,20 @@ cannot widen it:
 
 | Signed-in as | Sees |
 | --- | --- |
-| STUDENT | The faculty who teach their class, with each teacher's phone, email and the subjects they are responsible for, plus the administration mailbox from `app_users` |
-| TEACHER | The students in every class and division on their own timetable, with roll number, student phone, guardian phone and email |
-| ADMIN | All faculty and all students |
+| STUDENT | The faculty who teach their class, with each teacher's phone, email and the subjects they are responsible for, plus the administration contact |
+| TEACHER | The students in every class and division on their own timetable (roll number, student phone, guardian phone and email), plus the administration contact |
+| ADMIN | All faculty and all students, plus the administration contact |
+
+The administration contact is the enabled `ADMIN` account: name, sign-in id, phone and email. Every
+role sees it, and it is the only person row in the directory with an **Edit details** button — shown
+to the signed-in administrator on their own row and nowhere else. Saving writes `app_users` through
+`PUT /api/contacts/administration`, which is `hasRole('ADMIN')`; a teacher or student calling it gets
+`403`.
 
 The manually maintained desk rows (`/api/contacts`) stay below that list for every role and are
-editable by ADMIN only.
+editable by ADMIN only. Roll numbers and every other student field are likewise writable only
+through `PUT /api/students/{id}`, which is ADMIN-only — a student's own profile page has no edit
+control, and a teacher's roster shows the record read-only.
 
 Controls above the list, all applied in the browser to whatever the session is allowed to see:
 
@@ -256,8 +274,8 @@ subjects ──┤
 teachers ──┘
 contacts        desk directory, grouped by category; the people list is derived from
                 class_schedules + students + teachers instead of this table
-app_users       login + role, points at a student or teacher row; password_is_default marks a
-                password the academy handed out
+app_users       login + role, points at a student or teacher row; phone is the administrator's
+                published contact line; password_is_default marks a password the academy handed out
 profile_photos  one picture per app_users row, removed with the account
 ```
 
@@ -275,8 +293,44 @@ Business rules enforced in the service layer, not just the UI:
   signed-in role; setting or clearing one for a student or teacher is ADMIN only.
 - Students cannot read another student's record: `/api/students/{id}` is ADMIN/TEACHER only, and
   self-service always resolves the id from the session, never from the request.
+- A student's record — roll number, programme, section, status and the rest — is writable only
+  through the ADMIN-only `POST`/`PUT`/`DELETE /api/students/**`. Students read their own record but
+  cannot edit it; teachers can read the roster they are allowed to see and cannot edit it either.
+- The administration contact is writable only by an administrator, and only that administrator's own
+  row. Desk rows in `contacts` are ADMIN-only for the same reason.
 
-## 8. Layout
+## 8. Themes, legal pages and launch
+
+**Six colour themes.** The palette lives in `css/main.css` as custom properties: `slate` (the
+default), `evergreen`, `marine`, `terracotta`, `sandstone` and `graphite`. Each one recolours the
+accent, sidebar, badges and surfaces; no theme uses a gradient. `js/theme.js` runs before the
+stylesheet, applies the stored choice to `<html data-theme="…">`, and fills every
+`select[data-theme-picker]` — the sidebar footer and the sign-in and legal pages. The choice is kept
+in `localStorage` under `academy.theme`, so it follows the browser through a sign-out and back.
+
+**Favicon.** `favicon.svg` (navy tile, white A) is declared in the head of every page and served
+publicly.
+
+**Legal pages.** `privacy.html` and `terms.html` are public (no session) and linked from the footer
+of every page. They describe what the portal stores, who can see it, the two cookies it sets
+(`JSESSIONID`, `XSRF-TOKEN`), retention and the office contact for removal. Update the dates and the
+office address before publishing.
+
+**Custom domain and HTTPS.** The app itself does not own a domain; DNS and certificates belong to
+whoever hosts it. The intended layout is a TLS-terminating reverse proxy (Caddy, nginx or the
+hosting platform's load balancer) in front of the jar:
+
+1. Point an `A`/`AAAA` (or `CNAME`) record for the chosen name at the host.
+2. Terminate TLS at the proxy and forward `X-Forwarded-Proto` and `X-Forwarded-Host`.
+3. Run the jar behind it on `PORT` — `server.forward-headers-strategy=framework` is already set, so
+   redirects and generated links use the public `https://` address.
+4. Re-check `/login.html`, `/privacy.html`, `/terms.html` and the write endpoints over the real
+   hostname; CSRF cookies are same-origin, so the portal must be reached at one name only.
+
+The domain record and certificate must be created in the DNS and hosting accounts for the site;
+they cannot be connected from this build environment.
+
+## 9. Layout
 
 ```
 academy-portal/
@@ -296,7 +350,7 @@ academy-portal/
         └── static/     HTML pages, css/main.css, js/*.js
 ```
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 | Symptom | Cause / fix |
 | --- | --- |

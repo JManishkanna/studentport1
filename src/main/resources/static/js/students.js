@@ -155,10 +155,10 @@
                                 <td>${esc(s.rollNumber)}</td>
                                 <td><span class="badge">${esc(s.classLevel)}${s.section ? ' · ' + esc(s.section) : ''}</span></td>
                                 <td>
-                                    <div class="cell-strong">${esc(s.guardianName || '—')}</div>
+                                    <div class="cell-strong">${esc(s.guardianName || '-')}</div>
                                     <div class="cell-sub">${esc(s.guardianPhone || '')}</div>
                                 </td>
-                                <td>${esc(s.phone || '—')}<div class="cell-sub">${esc(s.city || '')}</div></td>
+                                <td>${esc(s.phone || '-')}<div class="cell-sub">${esc(s.city || '')}</div></td>
                                 <td>${statusBadge(s.status)}</td>
                                 <td class="num">
                                     ${Portal.isAdmin() ? `

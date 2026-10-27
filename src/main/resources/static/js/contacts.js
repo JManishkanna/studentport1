@@ -14,6 +14,7 @@
         people: [],
         peopleNote: '',
         role: '',
+        me: null,
     };
 
     const HEADINGS = {
@@ -26,8 +27,8 @@
 
     const SORTS = [
         { value: 'group', label: 'Programme, then name', key: row => [row.group || '', row.division || '', row.name] },
-        { value: 'name', label: 'Name (A–Z)', key: row => [row.name] },
-        { value: 'name-desc', label: 'Name (Z–A)', key: row => [row.name], desc: true },
+        { value: 'name', label: 'Name (A-Z)', key: row => [row.name] },
+        { value: 'name-desc', label: 'Name (Z-A)', key: row => [row.name], desc: true },
         { value: 'code', label: 'Roll / staff number', key: row => [row.code || '', row.name] },
         { value: 'phone', label: 'Phone number', key: row => [row.phone ? 0 : 1, digits(row.phone)] },
     ];
@@ -46,29 +47,34 @@
     async function load() {
         const me = await Portal.boot('contacts');
         state.role = me.role;
+        state.me = me;
         state.categories = await get('api/contacts/categories');
         state.contacts = await fetchRows();
         await loadPeople();
 
-        Portal.mountShell({
-            active: 'contacts',
-            title: 'Contact information',
-            subtitle: baseSubtitle(),
-            actions: me.role === 'ADMIN' ? '<button class="btn btn-primary" id="add">+ Add contact</button>' : '',
-        });
-
+        mountShell();
         renderFilters();
         renderDirectory();
         renderGroups();
         updateSummary();
+    }
 
-        if (me.role === 'ADMIN') document.getElementById('add').addEventListener('click', () => openForm(null));
+    function mountShell() {
+        Portal.mountShell({
+            active: 'contacts',
+            title: 'Contact information',
+            subtitle: baseSubtitle(),
+            actions: state.role === 'ADMIN' ? '<button class="btn btn-primary" id="add">+ Add contact</button>' : '',
+        });
+        if (state.role === 'ADMIN') {
+            document.getElementById('add').addEventListener('click', () => openForm(null));
+        }
     }
 
     function baseSubtitle() {
-        if (state.role === 'ADMIN') return 'Every faculty member and student, plus the academy desks';
-        if (state.role === 'TEACHER') return 'The students you teach, with their class division';
-        return 'Your subject faculty and the administration mailbox';
+        if (state.role === 'ADMIN') return 'Faculty, students, the administration contact and the academy desks';
+        if (state.role === 'TEACHER') return 'The students you teach, plus the administration contact';
+        return 'Your subject faculty and the administration contact';
     }
 
     /** The people list is scoped by the session, so a sign-in with no classes simply gets a note. */
@@ -324,6 +330,9 @@
                                 ${personRow.email
                                     ? `<a href="mailto:${esc(personRow.email)}">${esc(personRow.email)}</a>`
                                     : '<span class="cell-sub">not listed</span>'}
+                                ${canEditAdministration(personRow)
+                                    ? '<div style="margin-top:6px"><button class="btn btn-ghost btn-sm" data-admin-edit>Edit details</button></div>'
+                                    : ''}
                             </td>
                         </tr>`), ['Person', 'Phone', 'Email'])}
                     </div>
@@ -344,6 +353,38 @@
             if (boards) content.insertBefore(wrap, boards);
             else content.appendChild(wrap);
         }
+
+        wrap.querySelectorAll('[data-admin-edit]').forEach(button =>
+            button.addEventListener('click', openAdministrationDetails));
+    }
+
+    /** Only the signed-in administrator's own line is editable, and only from their own session. */
+    function canEditAdministration(row) {
+        return row.kind === 'ADMINISTRATION' && state.role === 'ADMIN'
+            && state.me && String(row.id) === String(state.me.id);
+    }
+
+    async function openAdministrationDetails() {
+        await recordForm({
+            title: 'Administration details',
+            subtitle: 'Shown to every signed-in user on this page. Only an administrator can change them.',
+            fields: [
+                { name: 'fullName', label: 'Display name', required: true, span: 'full' },
+                { name: 'email', label: 'Email', type: 'email' },
+                { name: 'phone', label: 'Phone', placeholder: '+91 80 4000 1010' },
+            ],
+            values: Portal.current(),
+            submitLabel: 'Save details',
+            save: async (values) => {
+                await put('api/contacts/administration', values);
+                state.me = await Portal.refreshMe();
+                await loadPeople();
+                mountShell();
+                renderDirectory();
+                updateSummary();
+                toast('Administration details updated');
+            },
+        });
     }
 
     function renderGroups() {
@@ -375,7 +416,7 @@
                                 ${c.alternatePhone ? `<div class="cell-sub">${esc(c.alternatePhone)}</div>` : ''}
                             </td>
                             <td>
-                                <div class="cell-sub">${esc(c.location || '—')}</div>
+                                <div class="cell-sub">${esc(c.location || '-')}</div>
                                 <div class="cell-sub">${esc(c.availableHours || '')}</div>
                             </td>
                             ${Portal.isAdmin() ? `<td class="num">

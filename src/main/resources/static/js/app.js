@@ -7,19 +7,34 @@ const Portal = (() => {
 
     const NAV = [
         { section: 'Overview' },
-        { key: 'dashboard', label: 'Dashboard', href: 'index.html', icon: '▦', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
+        { key: 'dashboard', label: 'Dashboard', href: 'index.html', icon: 'dashboard', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
         { section: 'Directory' },
-        { key: 'students', label: 'Students', href: 'students.html', icon: '☺', roles: ['ADMIN', 'TEACHER'] },
-        { key: 'teachers', label: 'Teachers', href: 'teachers.html', icon: '⚭', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
-        { key: 'schedule', label: 'Timetable', href: 'schedule.html', icon: '▤', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
-        { key: 'contacts', label: 'Contacts', href: 'contacts.html', icon: '☏', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
-        { key: 'certificates', label: 'Certificates', href: 'certificates.html', icon: '✦', roles: ['ADMIN'] },
+        { key: 'students', label: 'Students', href: 'students.html', icon: 'students', roles: ['ADMIN', 'TEACHER'] },
+        { key: 'teachers', label: 'Teachers', href: 'teachers.html', icon: 'teachers', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
+        { key: 'schedule', label: 'Timetable', href: 'schedule.html', icon: 'schedule', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
+        { key: 'contacts', label: 'Contacts', href: 'contacts.html', icon: 'contacts', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
+        { key: 'certificates', label: 'Certificates', href: 'certificates.html', icon: 'certificates', roles: ['ADMIN'] },
         { section: 'Account' },
-        { key: 'me', label: 'My profile', href: 'student-profile.html?me=1', icon: '◐', roles: ['STUDENT'] },
-        { key: 'me', label: 'My profile', href: 'teacher-profile.html?me=1', icon: '◐', roles: ['TEACHER'] },
-        { key: 'me', label: 'My timetable', href: 'teacher-profile.html?me=1&tab=schedule', icon: '▤', roles: ['TEACHER'] },
-        { key: 'account', label: 'Account settings', href: 'account.html', icon: '⚙', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
+        { key: 'me', label: 'My profile', href: 'student-profile.html?me=1', icon: 'user', roles: ['STUDENT'] },
+        { key: 'me', label: 'My profile', href: 'teacher-profile.html?me=1', icon: 'user', roles: ['TEACHER'] },
+        { key: 'me', label: 'My timetable', href: 'teacher-profile.html?me=1&tab=schedule', icon: 'schedule', roles: ['TEACHER'] },
+        { key: 'account', label: 'Account settings', href: 'account.html', icon: 'settings', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
     ];
+
+    const ICONS = {
+        dashboard: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+        students: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        teachers: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+        schedule: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/>',
+        contacts: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>',
+        certificates: '<circle cx="12" cy="8" r="6"/><path d="M15.5 13.5 17 22l-5-3-5 3 1.5-8.5"/>',
+        user: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3"/><path d="M6.5 19a6 6 0 0 1 11 0"/>',
+        settings: '<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="8" cy="18" r="2" fill="currentColor" stroke="none"/>',
+    };
+
+    function navIcon(name) {
+        return `<span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[name] || ''}</svg></span>`;
+    }
 
     const DAYS = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -104,7 +119,7 @@ const Portal = (() => {
     }
 
     function formatDate(value) {
-        if (!value) return '—';
+        if (!value) return '-';
         const date = new Date(value);
         if (Number.isNaN(date.getTime())) return value;
         return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -140,8 +155,8 @@ const Portal = (() => {
             .filter(item => item.roles ? item.roles.includes(me.role) : true)
             .map(item => item.section
                 ? `<div class="nav-label">${esc(item.section)}</div>`
-                : `<a href="${item.href}" class="${item.key === active ? 'active' : ''}">
-                       <span class="ico">${item.icon}</span><span>${esc(item.label)}</span>
+                : `<a href="${item.href}" class="${item.key === active ? 'active' : ''}"${item.key === active ? ' aria-current="page"' : ''}>
+                       ${navIcon(item.icon)}<span>${esc(item.label)}</span>
                    </a>`)
             .join('');
 
@@ -166,7 +181,17 @@ const Portal = (() => {
                         <span>${esc(label(me.role))}${me.username ? ' · ' + esc(me.username) : ''}</span>
                     </div>
                 </div>
-                <button class="signout" id="signout">Sign out</button>
+                <div class="foot-row">
+                    <button class="signout" id="signout">Sign out</button>
+                    <div class="legal-links">
+                        <a href="privacy.html">Privacy</a>
+                        <a href="terms.html">Terms</a>
+                    </div>
+                </div>
+                <div class="theme-picker">
+                    <label for="theme-select">Colour theme</label>
+                    <select id="theme-select" data-theme-picker aria-label="Colour theme"></select>
+                </div>
             </div>`;
 
         topbar.innerHTML = `
@@ -179,6 +204,10 @@ const Portal = (() => {
         const signout = document.getElementById('signout');
         if (signout) {
             signout.addEventListener('click', () => submitSignout());
+        }
+        if (window.AcademyTheme) {
+            window.AcademyTheme.mount(sidebar);
+            window.AcademyTheme.sync();
         }
         return content;
     }
@@ -416,7 +445,7 @@ const Portal = (() => {
     function slotCard(row, { showClass = true } = {}) {
         return `
             <div class="slot" data-id="${row.id}">
-                <div class="time">${formatTime(row.startTime)} – ${formatTime(row.endTime)}</div>
+                <div class="time">${formatTime(row.startTime)} - ${formatTime(row.endTime)}</div>
                 <div class="subj">${esc(row.subjectName)} <span class="badge">${esc(row.subjectCode)}</span></div>
                 <div class="who">${esc(row.teacherName)}</div>
                 ${showClass ? `<div class="room">${esc(row.classLevel)} · Sec ${esc(row.section)} · ${esc(row.room || 'room not set')}</div>`

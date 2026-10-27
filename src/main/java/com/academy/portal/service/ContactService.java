@@ -5,6 +5,7 @@ import com.academy.portal.domain.Contact;
 import com.academy.portal.domain.Role;
 import com.academy.portal.domain.Student;
 import com.academy.portal.domain.Teacher;
+import com.academy.portal.dto.AdministrationDetailsRequest;
 import com.academy.portal.dto.ContactDto;
 import com.academy.portal.dto.PersonContactDto;
 import com.academy.portal.dto.ScheduleRow;
@@ -20,6 +21,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,8 +54,8 @@ public class ContactService {
 
     /**
      * Who the signed-in user may reach, worked out from their own classes so the list cannot be
-     * widened by the client. A student gets the faculty responsible for their subjects plus the
-     * administration mailbox; a teacher gets the students in the divisions they teach.
+     * widened by the client. Every role also gets the administration line, so the person who runs
+     * the academy is reachable from any sign-in; only an administrator may change those details.
      */
     @Transactional(readOnly = true)
     public List<PersonContactDto> people() {
@@ -69,6 +71,7 @@ public class ContactService {
         List<PersonContactDto> people = new ArrayList<>(faculty(teacherRepository.findAll().stream().toList(), null));
         studentRepository.findAllByOrderByClassLevelAscSectionAscRollNumberAsc().forEach(student ->
                 people.add(toPerson(student)));
+        people.addAll(administration());
         return people;
     }
 
@@ -86,10 +89,7 @@ public class ContactService {
                             divison.substring(0, split), divison.substring(split + 1))
                     .forEach(student -> people.add(toPerson(student)));
         });
-        if (people.isEmpty()) {
-            throw new BadRequestException(fullName(teacher.getFirstName(), teacher.getLastName())
-                    + " has no classes on the timetable yet");
-        }
+        people.addAll(administration());
         return people;
     }
 
@@ -102,16 +102,38 @@ public class ContactService {
         }
         List<PersonContactDto> people = new ArrayList<>(
                 faculty(teacherRepository.findAllById(subjectsByTeacher.keySet()).stream().toList(), subjectsByTeacher));
-        userRepository.findByRole(Role.ADMIN).stream()
-                .filter(AppUser::isEnabled)
-                .filter(admin -> admin.getEmail() != null && !admin.getEmail().isBlank())
-                .sorted(Comparator.comparing(AppUser::getFullName))
-                // The mailbox has no programme, so it never appears under a programme filter.
-                .forEach(admin -> people.add(new PersonContactDto(admin.getId(), PersonContactDto.ADMINISTRATION,
-                        admin.getFullName(), admin.getUsername(), null, null, admin.getEmail(),
-                        "Academy administration", null, null,
-                        photoService.urlFor(admin.getId()).orElse(null))));
+        people.addAll(administration());
         return people;
+    }
+
+    /** The enabled administrators, as the line every role can write to. */
+    private List<PersonContactDto> administration() {
+        return userRepository.findByRole(Role.ADMIN).stream()
+                .filter(AppUser::isEnabled)
+                .sorted(Comparator.comparing(AppUser::getFullName, String.CASE_INSENSITIVE_ORDER))
+                .map(this::toAdministration)
+                .toList();
+    }
+
+    private PersonContactDto toAdministration(AppUser admin) {
+        // The mailbox has no programme, so it never appears under a programme filter either.
+        return new PersonContactDto(admin.getId(), PersonContactDto.ADMINISTRATION,
+                admin.getFullName(), admin.getUsername(), admin.getPhone(), null, admin.getEmail(),
+                "Academy administration", null, null,
+                photoService.urlFor(admin.getId()).orElse(null));
+    }
+
+    /** An administrator publishing their own contact details; only that role reaches this. */
+    @Transactional
+    public PersonContactDto updateAdministration(AdministrationDetailsRequest request) {
+        AppUser admin = currentUserService.requireCurrentUser();
+        if (admin.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Only an administrator can change the administration details");
+        }
+        admin.setFullName(request.fullName().trim());
+        admin.setEmail(trimOrNull(request.email()));
+        admin.setPhone(trimOrNull(request.phone()));
+        return toAdministration(userRepository.save(admin));
     }
 
     private List<PersonContactDto> faculty(List<Teacher> teachers, Map<Long, Set<String>> subjectsByTeacher) {

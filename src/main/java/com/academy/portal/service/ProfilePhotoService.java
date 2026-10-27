@@ -7,6 +7,7 @@ import com.academy.portal.repository.AppUserRepository;
 import com.academy.portal.repository.ProfilePhotoRepository;
 import java.io.IOException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -82,7 +83,9 @@ public class ProfilePhotoService {
         });
         photo.setContentType(contentType);
         photo.setBytes(bytes);
-        photo.setUpdatedAt(Instant.now());
+        // Pin to whole milliseconds: TIMESTAMP(3) rounds a finer value, so the URL handed back by
+        // the upload would carry a different version than the row other reads serve.
+        photo.setUpdatedAt(Instant.now().truncatedTo(ChronoUnit.MILLIS));
         photoRepository.save(photo);
     }
 

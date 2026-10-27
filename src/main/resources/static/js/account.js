@@ -43,7 +43,7 @@
                         <dl class="facts">
                             <dt>Username</dt><dd><code>${esc(me.username)}</code></dd>
                             <dt>Role</dt><dd>${esc(label(me.role))}</dd>
-                            <dt>Password</dt><dd>${me.passwordIsDefault ? 'Academy default — change it below' : 'Chosen by you'}</dd>
+                            <dt>Password</dt><dd>${me.passwordIsDefault ? 'Academy default. Change it below.' : 'Chosen by you'}</dd>
                         </dl>
                     </div>
                 </div>
@@ -136,7 +136,7 @@
             button.innerHTML = '<span class="spinner"></span> Updating';
             try {
                 await post('api/auth/password', { currentPassword: current, newPassword: next });
-                await afterChange('Password updated');
+                await afterChange('Password updated. Use it the next time you sign in.');
             } catch (error) {
                 errorBox.textContent = error.message;
                 button.disabled = false;

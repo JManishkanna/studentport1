@@ -7,6 +7,8 @@ public record MeDto(
         Long id,
         String username,
         String fullName,
+        String email,
+        String phone,
         Role role,
         Long studentId,
         Long teacherId,
@@ -14,7 +16,8 @@ public record MeDto(
         boolean passwordIsDefault) {
 
     public static MeDto from(AppUser user, String photoUrl) {
-        return new MeDto(user.getId(), user.getUsername(), user.getFullName(), user.getRole(),
-                user.getStudentId(), user.getTeacherId(), photoUrl, user.isPasswordIsDefault());
+        return new MeDto(user.getId(), user.getUsername(), user.getFullName(), user.getEmail(),
+                user.getPhone(), user.getRole(), user.getStudentId(), user.getTeacherId(), photoUrl,
+                user.isPasswordIsDefault());
     }
 }

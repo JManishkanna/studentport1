@@ -42,6 +42,9 @@ public class UserSeeder implements ApplicationRunner {
     @Value("${portal.seed.admin.password:admin123}")
     private String adminPassword;
 
+    @Value("${portal.seed.admin.phone:+91 80 4000 1010}")
+    private String adminPhone;
+
     public UserSeeder(AppUserRepository userRepository,
                       StudentRepository studentRepository,
                       TeacherRepository teacherRepository,
@@ -69,6 +72,7 @@ public class UserSeeder implements ApplicationRunner {
             admin.setPasswordIsDefault(true);
             admin.setFullName("Portal Administrator");
             admin.setEmail("admin@academy.edu");
+            admin.setPhone(adminPhone);
             admin.setRole(Role.ADMIN);
             admin.setEnabled(true);
             userRepository.save(admin);

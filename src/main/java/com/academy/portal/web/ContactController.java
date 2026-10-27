@@ -1,5 +1,6 @@
 package com.academy.portal.web;
 
+import com.academy.portal.dto.AdministrationDetailsRequest;
 import com.academy.portal.dto.ContactDto;
 import com.academy.portal.dto.PersonContactDto;
 import com.academy.portal.service.ContactService;
@@ -41,6 +42,13 @@ public class ContactController {
     @GetMapping("/categories")
     public List<String> categories() {
         return contactService.categories();
+    }
+
+    /** The administration line is published to every role; only an administrator may change it. */
+    @PutMapping("/administration")
+    @PreAuthorize("hasRole('ADMIN')")
+    public PersonContactDto updateAdministration(@Valid @RequestBody AdministrationDetailsRequest request) {
+        return contactService.updateAdministration(request);
     }
 
     @PostMapping

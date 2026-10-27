@@ -42,10 +42,10 @@
 
         content.innerHTML = `
             <section class="grid stats">
-                <div class="card stat accent"><span class="value">${esc(profile.classLevel)} ${esc(profile.section || '—')}</span><span class="label">My class</span></div>
+                <div class="card stat accent"><span class="value">${esc(profile.classLevel)} ${esc(profile.section || '-')}</span><span class="label">My class</span></div>
                 <div class="card stat teal"><span class="value">${subjects.length}</span><span class="label">Subjects enrolled</span></div>
                 <div class="card stat"><span class="value">${mine.length}</span><span class="label">Classes today (${esc(dayName(today))})</span></div>
-                <div class="card stat amber"><span class="value">${next ? `${formatTime(next.startTime)}` : '—'}</span><span class="label">First period</span></div>
+                <div class="card stat amber"><span class="value">${next ? `${formatTime(next.startTime)}` : '-'}</span><span class="label">First period</span></div>
             </section>
 
             <section class="grid profile">
@@ -80,9 +80,9 @@
                     <div class="card-head"><h2>Guardian contact</h2></div>
                     <div class="card-body">
                         <dl class="facts">
-                            <dt>Guardian</dt><dd>${esc(profile.guardianName || '—')}</dd>
-                            <dt>Phone</dt><dd>${esc(profile.guardianPhone || '—')}</dd>
-                            <dt>Email</dt><dd>${esc(profile.guardianEmail || '—')}</dd>
+                            <dt>Guardian</dt><dd>${esc(profile.guardianName || '-')}</dd>
+                            <dt>Phone</dt><dd>${esc(profile.guardianPhone || '-')}</dd>
+                            <dt>Email</dt><dd>${esc(profile.guardianEmail || '-')}</dd>
                             <dt>Status</dt><dd>${statusBadge(profile.status)}</dd>
                         </dl>
                     </div>
@@ -152,12 +152,12 @@
                             <thead><tr><th>Time</th><th>Class</th><th>Subject</th><th>Faculty</th><th>Room</th></tr></thead>
                             <tbody>
                                 ${stats.todaySessions.length ? stats.todaySessions.map(row => `<tr>
-                                    <td class="num" style="text-align:left;font-variant-numeric:tabular-nums">${formatTime(row.startTime)}–${formatTime(row.endTime)}</td>
+                                    <td class="num" style="text-align:left;font-variant-numeric:tabular-nums">${formatTime(row.startTime)}-${formatTime(row.endTime)}</td>
                                     <td><span class="badge">${esc(row.classLevel)} · ${esc(row.section)}</span></td>
                                     <td><div class="cell-strong">${esc(row.subjectName)}</div><div class="cell-sub">${esc(row.subjectCode)}</div></td>
                                     <td>${esc(row.teacherName)}</td>
-                                    <td>${esc(row.room || '—')}</td>
-                                </tr>`).join('') : `<tr><td colspan="5">${Portal.emptyState('A quiet day — no classes are scheduled.', 'Sunday or an unconfigured day.')}</td></tr>`}
+                                    <td>${esc(row.room || '-')}</td>
+                                </tr>`).join('') : `<tr><td colspan="5">${Portal.emptyState('A quiet day. No classes are scheduled.', 'Sunday or an unconfigured day.')}</td></tr>`}
                             </tbody>
                         </table>
                     </div>

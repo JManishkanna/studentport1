@@ -79,8 +79,8 @@
                     <div class="card-body">
                         <dl class="facts">
                             <dt>Email</dt><dd style="word-break:break-all">${esc(teacher.email)}</dd>
-                            <dt>Phone</dt><dd>${esc(teacher.phone || '—')}</dd>
-                            <dt>Office</dt><dd>${esc(teacher.officeRoom || '—')}</dd>
+                            <dt>Phone</dt><dd>${esc(teacher.phone || '-')}</dd>
+                            <dt>Office</dt><dd>${esc(teacher.officeRoom || '-')}</dd>
                             <dt>Department</dt><dd>${esc(teacher.department)}</dd>
                         </dl>
                     </div>
@@ -89,8 +89,8 @@
                     <div class="card-head"><h2>Profile</h2></div>
                     <div class="card-body">
                         <dl class="facts">
-                            <dt>Qualification</dt><dd>${esc(teacher.qualification || '—')}</dd>
-                            <dt>Specialization</dt><dd>${esc(teacher.specialization || '—')}</dd>
+                            <dt>Qualification</dt><dd>${esc(teacher.qualification || '-')}</dd>
+                            <dt>Specialization</dt><dd>${esc(teacher.specialization || '-')}</dd>
                             <dt>Joining date</dt><dd>${formatDate(teacher.joiningDate)}</dd>
                             <dt>Sessions / week</dt><dd>${schedule.length}</dd>
                         </dl>
@@ -112,7 +112,7 @@
                                     <div class="slots">
                                         ${slots.map(row => `
                                             <div class="slot">
-                                                <div class="time">${formatTime(row.startTime)}–${formatTime(row.endTime)}</div>
+                                                <div class="time">${formatTime(row.startTime)}-${formatTime(row.endTime)}</div>
                                                 <div class="subj">${esc(row.subjectName)}</div>
                                                 <div class="who">${esc(row.classLevel)} · Sec ${esc(row.section)}</div>
                                                 <div class="room">${esc(row.room || 'room not set')}</div>
