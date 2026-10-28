@@ -1,5 +1,5 @@
 (() => {
-    const { esc, del, post, upload, initials, label, toast, refreshMe, confirmDialog } = Portal;
+    const { esc, del, post, put, upload, initials, label, toast, refreshMe, confirmDialog, recordForm } = Portal;
     const content = document.getElementById('content');
 
     async function load() {
@@ -49,6 +49,21 @@
                 </div>
             </section>
 
+            ${me.role === 'ADMIN' ? `
+            <section class="card">
+                <div class="card-head"><h2>Administration details</h2><span class="hint">Shown to every signed-in user on Contacts</span></div>
+                <div class="card-body">
+                    <dl class="facts">
+                        <dt>Display name</dt><dd>${esc(me.fullName)}</dd>
+                        <dt>Email</dt><dd>${esc(me.email || '-')}</dd>
+                        <dt>Phone</dt><dd>${esc(me.phone || '-')}</dd>
+                    </dl>
+                    <div class="modal-actions" style="justify-content:flex-start;margin-top:16px">
+                        <button type="button" class="btn btn-ghost" id="admin-details">Edit details</button>
+                    </div>
+                </div>
+            </section>` : ''}
+
             <section class="card">
                 <div class="card-head"><h2>Change password</h2><span class="hint">At least 8 characters</span></div>
                 <div class="card-body">
@@ -74,6 +89,7 @@
         renderPhoto(me);
         bindPhoto();
         bindPassword();
+        if (me.role === 'ADMIN') bindAdministration(me);
     }
 
     function renderPhoto(me) {
@@ -142,6 +158,29 @@
                 button.disabled = false;
                 button.textContent = 'Update password';
             }
+        });
+    }
+
+    /** The administration line on Contacts is the administrator's own profile; only they can change it. */
+    function bindAdministration(me) {
+        const button = document.getElementById('admin-details');
+        if (!button) return;
+        button.addEventListener('click', async () => {
+            await recordForm({
+                title: 'Administration details',
+                subtitle: 'These details appear on the Contacts page for students, teachers and administrators.',
+                fields: [
+                    { name: 'fullName', label: 'Display name', required: true, span: 'full' },
+                    { name: 'email', label: 'Email', type: 'email' },
+                    { name: 'phone', label: 'Phone', placeholder: '+91 80 4000 1010' },
+                ],
+                values: me,
+                submitLabel: 'Save details',
+                save: async (values) => {
+                    await put('api/contacts/administration', values);
+                    await afterChange('Administration details updated');
+                },
+            });
         });
     }
 

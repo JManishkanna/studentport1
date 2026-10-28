@@ -1,7 +1,7 @@
 # Academy Student Management Portal
 
-A full-stack student management portal for an academy: student profiles, class schedules, teacher
-records and contact information, with role-based sign-in.
+A full-stack student management portal for an academy: student profiles, class schedules, attendance
+with charts, teacher records and contact information, with role-based sign-in.
 
 | Layer | Technology |
 | --- | --- |
@@ -15,40 +15,107 @@ records and contact information, with role-based sign-in.
 
 ## 1. Prerequisites
 
-- JDK 17 or newer (`java -version`)
-- Maven 3.9+ (`mvn -v`) — if Maven is missing, `C:\Users\<you>\tools\apache-maven-3.9.11\bin\mvn`
-  was installed while building this project
-- MySQL 8.0 running with an account that can create a database
+| Need | Check | Notes for this machine |
+| --- | --- | --- |
+| JDK 17 or newer | `java -version` | `C:\Program Files\Java\jdk-26.0.2` |
+| Maven 3.9+ | `mvn -v` | not on `PATH` here: `C:\Users\Manish kanna J\tools\apache-maven-3.9.11\bin` |
+| MySQL 8.0 running | `mysqladmin -u root -p status` | `C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe`, server on `localhost:3306` |
 
-## 2. Point the app at MySQL
+No Node, no npm, no build step for the frontend — the pages are plain HTML/CSS/JS served from the jar.
 
-Credentials are read from environment variables; `src/main/resources/application.properties` holds
-the defaults. Nothing secret needs to be committed.
+## 2. Run it
+
+### 2.1 Give the app the database password
+
+The password is read from `MYSQL_PASSWORD` and is never committed. In the same terminal you are
+about to build in:
+
+```bash
+# Git Bash / Linux / macOS
+export MYSQL_USER=root
+export MYSQL_PASSWORD='your-password'
+```
 
 ```powershell
 # Windows PowerShell
-$env:MYSQL_HOST     = "localhost"
-$env:MYSQL_PORT     = "3306"
-$env:MYSQL_DATABASE = "academy_portal"
 $env:MYSQL_USER     = "root"
 $env:MYSQL_PASSWORD = "your-password"
+$env:MYSQL_HOST     = "localhost"   # optional, this is the default
+$env:MYSQL_PORT     = "3306"        # optional, this is the default
 ```
+
+`application.properties` reads `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`,
+`MYSQL_PASSWORD` and `PORT`; only the two credentials are required. The JDBC URL carries
+`createDatabaseIfNotExist=true`, so `academy_portal` is created for you on first boot — you do not
+have to open MySQL and make a database by hand.
+
+### 2.2 Build the jar
 
 ```bash
-# Linux / macOS / Git Bash
-export MYSQL_USER=root
-export MYSQL_PASSWORD=your-password
+cd academy-portal
+mvn clean package -DskipTests
 ```
 
-The JDBC URL uses `createDatabaseIfNotExist=true`, so the schema is created for you on first boot.
-On every start the app also runs:
+On Windows the running app locks its own jar, so stop the old process before rebuilding — otherwise
+Maven fails mid-`repackage`:
 
-- `src/main/resources/db/schema.sql` — `CREATE TABLE IF NOT EXISTS` for all eight tables, plus
+```powershell
+Get-Process java -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*jdk*" } | Stop-Process
+```
+
+### 2.3 Start the portal
+
+```bash
+java -jar target/academy-portal-1.0.0.jar
+```
+
+Watch for these two lines, which mean the database is wired and the demo data is loaded:
+
+```
+Started AcademyPortalApplication in 7.4 seconds
+Student and teacher sign-ins are their academy email, on the default password until changed
+```
+
+### 2.4 Open the webpage
+
+Browse to <http://localhost:8080>. You are redirected to `login.html`; sign in with one of the demo
+accounts in section 4. Unsigned calls to `/api/**` answer `401` instead of a redirect, so `fetch()`
+can tell an expired session from a successful response.
+
+To use another port — because 8080 is taken, or two checkouts are running at once — set `PORT`
+before starting and open the matching address:
+
+```bash
+PORT=8081 java -jar target/academy-portal-1.0.0.jar   # then http://localhost:8081
+```
+
+To run without building a jar at all: `mvn spring-boot:run` (same environment variables).
+
+### 2.5 One-liners when the browser is not handy
+
+```bash
+bash scripts/smoke-test.sh                      # tests :8080
+BASE=http://localhost:8081 bash scripts/smoke-test.sh
+```
+
+### 2.6 Stop it
+
+`Ctrl+C` in the terminal that started it. Every page is served from the same process, so stopping it
+is also how you reload changed Java code — static files under `src/main/resources/static` are
+served with `spring.web.resources.cache.period=0`, so a browser refresh picks up HTML/CSS/JS edits
+without a restart, but a change to `db/schema.sql` or `db/data.sql` needs a rebuild and a restart.
+
+## 3. What runs on every boot
+
+On each start the app executes both SQL scripts, so a fresh checkout needs nothing beyond the
+password:
+
+- `src/main/resources/db/schema.sql` — `CREATE TABLE IF NOT EXISTS` for all nine tables, plus
   guarded `ALTER TABLE` migrations that add `app_users.password_is_default`, widen
   `profile_photos.updated_at` to milliseconds and add `app_users.phone` to databases created before
   those columns existed
-- `src/main/resources/db/data.sql` — demo students, faculty, subjects, timetable slots and contacts
-  (`INSERT IGNORE`, so restarting never duplicates rows)
+- `src/main/resources/db/data.sql` — demo students, faculty, subjects, timetable slots, two weeks of
+  attendance and contacts (`INSERT IGNORE`, so restarting never duplicates rows)
 
 The demo catalogue is organised as four programmes. `class_level` holds the programme name, and each
 programme owns one track of four subjects and its own faculty:
@@ -69,18 +136,6 @@ To load the database by hand instead:
 mysql -u root -p academy_portal < src/main/resources/db/schema.sql
 mysql -u root -p academy_portal < src/main/resources/db/data.sql
 ```
-
-## 3. Run it
-
-```bash
-mvn spring-boot:run
-# or
-mvn clean package -DskipTests
-java -jar target/academy-portal-1.0.0.jar
-```
-
-Open <http://localhost:8080> — you are redirected to `login.html`. Unsigned calls to `/api/**` answer
-`401` instead of a redirect, so `fetch()` can tell an expired session from a successful response.
 
 ## 4. Demo accounts
 
@@ -124,14 +179,15 @@ Both write a fresh hash and update the flag. Administrators change their own pas
 | --- | --- | --- |
 | Sign in | `static/login.html` | Session login, CSRF-aware; takes a username, a student email or a teacher email |
 | Dashboard | `static/index.html` | Role-aware overview: academy stats and today's classes, or a student's own day |
-| Students | `static/students.html` | Search / filter roster, admit, edit, manage the student's sign-in, remove (admin) |
-| Student profile | `static/student-profile.html` | Profile, guardian + contact details, weekly timetable, enrolled subjects, classmates; admins change the picture here |
-| Teachers | `static/teachers.html` | Faculty directory cards with contact details and pictures; admin adds, edits, manages sign-ins, removes |
-| Teacher profile | `static/teacher-profile.html` | Contact info, qualifications, weekly timetable, subjects and classes taught; admins change the picture here |
+| Students | `static/students.html` | Search / filter roster, admit (picture optional), edit, manage the student's sign-in, remove (admin) |
+| Student profile | `static/student-profile.html` | Profile, guardian + contact details, weekly timetable, enrolled subjects, classmates; admins edit the record and the picture here |
+| Teachers | `static/teachers.html` | Faculty directory cards with contact details and pictures; admin adds (picture optional), edits, manages sign-ins, removes |
+| Teacher profile | `static/teacher-profile.html` | Contact info, qualifications, weekly timetable, subjects and classes taught; admins edit the record and the picture here |
 | Timetable | `static/schedule.html` | Week grid with class/section/teacher/subject filters; admin builds sessions |
+| Attendance | `static/attendance.html` | ADMIN and TEACHER: rate tiles, attendance-by-class and daily charts, then take or review the sheet for any class on the day; STUDENT: own rate, per-subject and daily charts and the full history |
 | Contacts | `static/contacts.html` | Role-scoped people directory (see below) plus department desks and helplines grouped by category |
 | Certificates | `static/certificates.html` | ADMIN only: tick one or many graduates, preview the wording, then download the certificate PDFs |
-| Account settings | `static/account.html` | Every role: profile picture, sign-in details and a password change |
+| Account settings | `static/account.html` | Every role: profile picture, sign-in details and a password change; admins also edit the published administration name, email and phone here |
 | Privacy policy | `static/privacy.html` | Public: what the portal stores, who can see it, cookies, retention and how to ask for removal |
 | Terms and conditions | `static/terms.html` | Public: acceptable use, accounts, records and availability |
 
@@ -166,12 +222,45 @@ from `GET /api/auth/csrf`).
 | `GET` | `/api/schedules?dayOfWeek=&classLevel=&section=&teacherId=&subjectId=` | ADMIN, TEACHER |
 | `GET` | `/api/schedules/class?classLevel=&section=` | any signed-in user |
 | `POST` `PUT` `DELETE` | `/api/schedules/**` | ADMIN |
+| `GET` | `/api/attendance/sessions?date=&classLevel=&section=` | ADMIN, TEACHER (teachers: own timetable only) |
+| `GET` | `/api/attendance/sheet?scheduleId=&date=` | ADMIN, or the TEACHER who owns that session |
+| `POST` | `/api/attendance` (`{scheduleId,date,entries:[{studentId,status}]}`) | ADMIN, or the TEACHER who owns that session |
+| `GET` | `/api/attendance/summary?from=&to=&classLevel=&section=` | ADMIN, TEACHER (scoped to their classes) |
+| `GET` | `/api/attendance/me?from=&to=` | signed-in student |
 | `GET` | `/api/contacts`, `/api/contacts/categories`, `/api/subjects` | any signed-in user |
 | `GET` | `/api/contacts/people` | any signed-in user, scoped to their own classes |
 | `PUT` | `/api/contacts/administration` (`{fullName,email,phone}`) | ADMIN, own details |
 | `POST` `PUT` `DELETE` | `/api/contacts/**` | ADMIN |
 | `POST` | `/api/certificates` → `application/pdf` | ADMIN |
 | `POST` | `/api/certificates/preview` → the same pages as JSON | ADMIN |
+
+### Attendance
+
+One row per student, subject and session. `GET /api/attendance/sessions?date=2026-10-19` lists the
+classes that meet on that date — every session for an administrator, and only the sessions on a
+teacher's own timetable for faculty — each with the active roster count and how many of them already
+carry a mark, so the list shows `not started`, `partly marked` or `complete`. A Sunday answers `[]`.
+
+`GET /api/attendance/sheet?scheduleId=1&date=2026-10-19` returns the roll to mark: the subject, the
+class and division, the hour, the room, the teacher's name, and one row per active student with
+`rollNumber`, `photoUrl` and the status saved so far (`null` when unmarked). `POST /api/attendance`
+saves the sheet and answers with the same shape, so the page refreshes from the server's answer
+rather than its own guess. The server rejects a status outside `PRESENT`, `ABSENT`, `LATE` (`400`), a
+student who is not in that class (`400`), the same roll twice (`400`), a date that is not the weekday
+the session meets on (`400`, naming the weekday) and a schedule id that does not exist (`404`). A
+teacher pointing the call at another faculty's session gets `403` before any of that is checked.
+
+`GET /api/attendance/summary` covers the last 30 days by default, capped at 366, and answers with
+the overall present/absent/late counts, the rate, one row per class and division, and one row per day
+— the three series `attendance.html` draws as charts. A teacher's answer holds only their own
+classes. `GET /api/attendance/me` is the same idea for one student: totals, per-subject rates, the
+daily series and the dated history.
+
+**A late arrival counts as attended** in every rate: `rate = (present + late) / marked`. The charts
+say so underneath, and late marks are drawn in their own colour rather than folded into absent.
+
+Marking copies the class, subject and hour onto the row instead of referencing the timetable, so a
+session that is later edited or deleted leaves the recorded attendance untouched.
 
 ### Graduation certificates
 
@@ -207,9 +296,16 @@ picture bypasses the browser cache and the sidebar updates without a reload. Upl
 on **Account settings**, which every role can open.
 
 A student's or teacher's picture is stored on their sign-in row, so their record carries it too:
-`StudentDto`, `TeacherDto` and the `/api/contacts/people` rows each expose a `photoUrl`. The roster,
-faculty cards, contact lists and both profile pages render it for every signed-in role, with
-initials filling in where no picture exists. Administrators manage it from either profile page with
+`StudentDto`, `TeacherDto`, the `/api/contacts/people` rows and the attendance sheet rows each expose
+a `photoUrl`. The roster, faculty cards, contact lists, both profile pages, the class lists and the
+marking sheet render it for every signed-in role, with initials filling in where no picture exists.
+
+Administrators attach the picture while creating the person: the **Admit student** and **Add faculty**
+dialogs — and their **Edit** equivalents — end with a *Profile picture* file field. Saving posts or
+puts the record first and then uploads the chosen file to `POST /api/students/{id}/photo` or
+`POST /api/teachers/{id}/photo`, so the picture arrives through the same audited endpoint a later
+change would use. A record saves even when the upload is refused, and the page reports the picture
+problem separately instead of losing the entry. From a profile page the same store is reachable with
 **Change photo** / **Remove photo**:
 
 | Method | Path | Access |
@@ -221,6 +317,19 @@ initials filling in where no picture exists. Administrators manage it from eithe
 
 Every upload and removal answers with the updated record. A person with no sign-in row has nowhere
 to keep a picture; each student and teacher is given one when they are admitted or added.
+
+### What an administrator can edit on someone else's profile
+
+Teachers and students edit only their own password and their own picture. Everything else on another
+person's record is admin-only, and the page controls appear only for ADMIN:
+
+- a student's full record from the register or the profile page (`PUT /api/students/{id}`), roll
+  number included
+- a teacher's full record from the faculty page or the profile page (**Edit profile**,
+  `PUT /api/teachers/{id}`)
+- either person's picture, sign-in password and the `password_is_default` flag that goes with it
+- the published administration name, email and phone, from **Account settings** or the contacts page
+  (`PUT /api/contacts/administration`)
 
 ### Who the contacts page shows
 
@@ -257,11 +366,17 @@ Controls above the list, all applied in the browser to whatever the session is a
 
 The header subtitle reports `12 of 26 contact(s) match the current filters` while anything is active.
 
-Quick check from the shell:
+Quick check from the shell — note that `/login` is a write, so it needs the CSRF header too. Posting
+it without one returns `403` and leaves you with an unauthenticated cookie jar, which then looks like
+an API problem:
 
 ```bash
-curl -s -c cookies.txt -d "username=admin&password=admin123" -X POST http://localhost:8080/login
-curl -s -b cookies.txt http://localhost:8080/api/dashboard
+BASE=http://localhost:8080
+TK=$(curl -s -c cookies.txt "$BASE/api/auth/csrf" | sed -E 's/.*"token":"([^"]+)".*/\1/')
+curl -s -b cookies.txt -c cookies.txt -X POST "$BASE/login" -H "X-XSRF-TOKEN: $TK" \
+     --data-urlencode "username=admin" --data-urlencode "password=admin123" \
+     -o /dev/null -w "%{http_code}\n"   # 302 means signed in
+curl -s -b cookies.txt "$BASE/api/dashboard"
 ```
 
 ## 7. Data model
@@ -271,7 +386,10 @@ students ──┐
            ├── enrollments (student ↔ subject)
 subjects ──┤
            ├── class_schedules (subject + teacher + class/section + day + time + room)
-teachers ──┘
+teachers ──┘           │
+                       └── attendance (student + subject + date + start time → PRESENT/ABSENT/LATE,
+                           marked by whom, when; the class, section and hour are copied from the
+                           session so history survives a timetable change)
 contacts        desk directory, grouped by category; the people list is derived from
                 class_schedules + students + teachers instead of this table
 app_users       login + role, points at a student or teacher row; phone is the administrator's
@@ -286,6 +404,12 @@ Business rules enforced in the service layer, not just the UI:
 - No two sessions can overlap for the same class/section, and a teacher cannot be double-booked —
   the API returns `409 Conflict` with the clashing slot named.
 - Deleting a student removes their enrollments; deleting a teacher removes their sessions.
+- One attendance mark per student, subject, date and start time (`uq_attendance_session`), so two
+  sessions of the same subject on one day stay separate rows. A mark can only land on the weekday
+  that session meets, only on a student in that class, only once per roll, and only as
+  `PRESENT`, `ABSENT` or `LATE`. Re-marking a student updates the row instead of adding one.
+- Attendance is readable by the student it belongs to and writable only by an administrator or the
+  faculty who own that session; a student asking for the sessions list gets `403`.
 - A student's or teacher's sign-in is opened, renamed and removed with the record. It starts on the
   academy default password; changing it from **Account settings** clears `password_is_default`, and
   only the hash is kept from then on.
@@ -335,19 +459,21 @@ they cannot be connected from this build environment.
 ```
 academy-portal/
 ├── pom.xml
+├── scripts/smoke-test.sh                 end-to-end role + endpoint checks (247 assertions)
 └── src/main/
     ├── java/com/academy/portal/
     │   ├── AcademyPortalApplication.java
     │   ├── config/     SecurityConfig, PortalUserDetailsService, UserSeeder
     │   ├── domain/     JPA entities + Role enum
-    │   ├── dto/      request/response records (StudentDto, ScheduleRow, ...)
+    │   ├── dto/      request/response records (StudentDto, ScheduleRow, AttendanceSheetDto, ...)
     │   ├── repository/ Spring Data JPA interfaces
-    │   ├── service/    business rules, validation, conflict detection
+    │   ├── service/    business rules, validation, conflict detection, attendance aggregates
     │   └── web/        REST controllers + error advice
     └── resources/
         ├── application.properties
         ├── db/schema.sql, db/data.sql
         └── static/     HTML pages, css/main.css, js/*.js
+                        (attendance.html draws its own SVG charts — no chart library, no build step)
 ```
 
 ## 10. Troubleshooting
@@ -356,7 +482,12 @@ academy-portal/
 | --- | --- |
 | `Access denied for user 'root'@'localhost'` | Set `MYSQL_USER` / `MYSQL_PASSWORD` correctly |
 | `Communications link failure` | MySQL service is stopped, or the port is wrong (`MYSQL_PORT`) |
+| `BUILD FAILURE ... academy-portal-1.0.0.jar ... locked` | The app is still running on Windows and holds the jar — stop it, then rebuild (section 2.2) |
 | Login posts return `403` | The CSRF cookie/header is missing — sign in through `login.html`, and make sure the app is served over `http://localhost` (cookies are scoped) |
+| Every `/api/**` call answers `401` after a shell login | The login never succeeded (see the row above), so the cookie jar holds an anonymous session — `302` from `POST /login` is the proof it worked |
 | Empty dashboard but app started | `db/data.sql` did not run: check the boot log for `Executing SQL script from class path resource` |
 | Profile picture upload rejected | It must be a PNG, JPEG or WebP under 2 MB — the server checks the bytes, not the file name |
-| Port 8080 busy | `SERVER_PORT=9090` (the app reads `PORT`), then open `http://localhost:9090` |
+| Attendance page says no classes | The chosen date is not a weekday the timetable uses (the seed runs Monday–Friday); pick a weekday, or **Clear** the class and section filters |
+| A smoke test sign-in fails with `401` after browsing | A browser session changed a demo password; reset it as admin with `POST /api/{students\|teachers}/{id}/login/reset` and `{}` |
+| Port 8080 busy | `PORT=9090` (or `SERVER_PORT=9090`), then open `http://localhost:9090` — another app on 8080 answers with its own `401`, which looks like this portal misbehaving |
+

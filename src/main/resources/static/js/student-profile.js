@@ -149,7 +149,15 @@
                             <thead><tr><th>Student</th><th>Roll</th><th>Guardian</th></tr></thead>
                             <tbody>
                                 ${classmates.map(c => `<tr${canAdmin ? ` class="clickable" data-open="${c.id}"` : ''}>
-                                    <td><div class="cell-strong">${esc(c.firstName)} ${esc(c.lastName)}</div><div class="cell-sub">${esc(c.email)}</div></td>
+                                    <td>
+                                        <div class="person">
+                                            ${avatar(c.photoUrl, `${c.firstName} ${c.lastName}`, 'avatar-xs')}
+                                            <div>
+                                                <div class="cell-strong">${esc(c.firstName)} ${esc(c.lastName)}</div>
+                                                <div class="cell-sub">${esc(c.email)}</div>
+                                            </div>
+                                        </div>
+                                    </td>
                                     <td>${esc(c.rollNumber)}</td>
                                     <td><div class="cell-strong">${esc(c.guardianName || '-')}</div><div class="cell-sub">${esc(c.guardianPhone || '')}</div></td>
                                 </tr>`).join('') || `<tr><td colspan="3">${Portal.emptyState('Nobody else in this class', '')}</td></tr>`}

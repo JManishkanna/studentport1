@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # End-to-end smoke test for the academy portal.
 # Usage: bash scripts/smoke-test.sh            (tests admin, teacher and student)
-# Requires the app running on :8080 with the demo seed data loaded.
+#        BASE=http://localhost:8081 bash scripts/smoke-test.sh   (another port)
+# Requires the app running on :8080 with the demo seed data loaded, and the demo student and
+# teacher sign-ins still on the default password.
 set -u
 BASE="${BASE:-http://localhost:8080}"
 RUN_TAG="ACAD-TST-$(date +%H%M%S)"
@@ -236,6 +238,42 @@ check "drop subject" 200 DELETE "/api/students/$ENROLL_ID/subjects/1"
 photo_upload "picture left on a student" "/api/students/$ENROLL_ID/photo" target/smoke/one.png 200
 expect_in "second student carries the picture" '"photoUrl":"api/profile/photo/'
 SHARED_PHOTO=$(first_photo_url)
+
+# Attendance. 2026-10-19 is a Monday and the seeded timetable meets Monday to Friday, so the
+# schedule ids below always name a real class: 1 = Full Stack Java A with Suresh Babu,
+# 20 = Full Stack Python A, 31 = Data Analysis A with another faculty.
+ATT_MON=2026-10-19
+ATT_SUN=2026-10-18
+check "classes on a monday" 200 GET "/api/attendance/sessions?date=$ATT_MON"
+expect_in "admin reaches every programme" '"classLevel":"Data Analysis"'
+expect_in "sessions carry the roster size" '"studentCount"'
+expect_in "sessions carry the subject code" '"subjectCode"'
+check "no classes on a sunday" 200 GET "/api/attendance/sessions?date=$ATT_SUN"
+expect_out "sunday offers nothing to mark" '"scheduleId"'
+check "sessions filtered to one division" 200 GET "/api/attendance/sessions?date=$ATT_MON&classLevel=Data%20Analysis&section=A"
+expect_out "filter drops the other classes" '"classLevel":"Full Stack Java"'
+check "roll for a class" 200 GET "/api/attendance/sheet?scheduleId=20&date=$ATT_MON"
+expect_in "sheet hands the roll to the marker" '"rollNumber"'
+expect_in "sheet rows carry pictures" '"photoUrl":"api/profile/photo/'
+check "mark a whole class" 200 POST /api/attendance "{\"scheduleId\":20,\"date\":\"$ATT_MON\",\"entries\":[{\"studentId\":$ENROLL_ID,\"status\":\"PRESENT\"}]}"
+expect_in "the mark is stored against the student" "\"studentId\":$ENROLL_ID"
+expect_in "the stored status reads back" '"status":"PRESENT"'
+check "re-marking updates the row" 200 POST /api/attendance "{\"scheduleId\":20,\"date\":\"$ATT_MON\",\"entries\":[{\"studentId\":$ENROLL_ID,\"status\":\"LATE\"}]}"
+expect_in "late replaces present" '"status":"LATE"'
+check "unknown status refused" 400 POST /api/attendance "{\"scheduleId\":20,\"date\":\"$ATT_MON\",\"entries\":[{\"studentId\":$ENROLL_ID,\"status\":\"MISSED\"}]}"
+check "a roll sent twice refused" 400 POST /api/attendance "{\"scheduleId\":20,\"date\":\"$ATT_MON\",\"entries\":[{\"studentId\":$ENROLL_ID,\"status\":\"PRESENT\"},{\"studentId\":$ENROLL_ID,\"status\":\"ABSENT\"}]}"
+check "a student outside the class refused" 400 POST /api/attendance "{\"scheduleId\":20,\"date\":\"$ATT_MON\",\"entries\":[{\"studentId\":1,\"status\":\"PRESENT\"}]}"
+check "an empty sheet refused" 400 POST /api/attendance "{\"scheduleId\":20,\"date\":\"$ATT_MON\",\"entries\":[]}"
+check "a mark on the wrong weekday refused" 400 POST /api/attendance "{\"scheduleId\":20,\"date\":\"$ATT_SUN\",\"entries\":[{\"studentId\":$ENROLL_ID,\"status\":\"PRESENT\"}]}"
+check "a ghost session refused" 404 POST /api/attendance "{\"scheduleId\":999999,\"date\":\"$ATT_MON\",\"entries\":[{\"studentId\":$ENROLL_ID,\"status\":\"PRESENT\"}]}"
+check "attendance summary" 200 GET '/api/attendance/summary?from=2026-10-12&to=2026-10-27'
+expect_in "summary totals the rate" '"rate"'
+expect_in "summary breaks down by class" '"classes"'
+expect_in "summary breaks down by day" '"days"'
+expect_in "summary keeps late apart" '"late"'
+check "summary range too wide refused" 400 GET '/api/attendance/summary?from=2020-01-01&to=2026-10-27'
+check "summary with the dates swapped refused" 400 GET '/api/attendance/summary?from=2026-10-27&to=2026-10-12'
+
 check "missing student 404" 404 GET /api/students/999999
 check "invalid payload 400" 400 POST /api/students '{"rollNumber":"","firstName":"","email":"nope","classLevel":"","status":"WEIRD"}'
 
@@ -326,9 +364,25 @@ check "cannot issue certificates" 403 POST /api/certificates '{"studentIds":[1],
 check "cannot preview certificates" 403 POST /api/certificates/preview '{"studentIds":[1],"conferredOn":"2026-10-30"}'
 check "cannot read teacher sign-ins" 403 GET /api/teachers/1/login
 check "cannot reset a teacher password" 403 POST /api/teachers/1/login/reset '{}'
+check "cannot edit any faculty record" 403 PUT /api/teachers/1 "$TEACHER"
 photo_url_get "student picture visible to a teacher" "$SHARED_PHOTO" 200
 photo_upload "teacher cannot set a student picture" "/api/students/$ENROLL_ID/photo" target/smoke/one.png 403
 check "cannot remove a student picture" 403 DELETE "/api/students/$ENROLL_ID/photo"
+
+# Suresh Babu teaches schedule 1 (Full Stack Java A) and 13 (Full Stack Java B) on Mondays, and
+# nothing else - so the other faculty's classes must not appear in his lists at all.
+check "teacher sees own classes only" 200 GET "/api/attendance/sessions?date=$ATT_MON"
+expect_in "teacher reaches own division A" '"classLevel":"Full Stack Java"'
+expect_out "teacher is not offered another programme" '"classLevel":"Data Analysis"'
+expect_out "teacher is not offered a friday class" '"classLevel":"UI/UX"'
+check "teacher opens own roll" 200 GET "/api/attendance/sheet?scheduleId=1&date=$ATT_MON"
+check "teacher marks own class" 200 POST /api/attendance "{\"scheduleId\":1,\"date\":\"$ATT_MON\",\"entries\":[{\"studentId\":1,\"status\":\"PRESENT\"}]}"
+check "teacher cannot mark another faculty's class" 403 POST /api/attendance "{\"scheduleId\":31,\"date\":\"$ATT_MON\",\"entries\":[{\"studentId\":11,\"status\":\"PRESENT\"}]}"
+check "teacher cannot open another faculty's roll" 403 GET "/api/attendance/sheet?scheduleId=31&date=$ATT_MON"
+check "teacher reads the summary" 200 GET '/api/attendance/summary?from=2026-10-12&to=2026-10-27'
+expect_in "summary covers a class he teaches" '"classLevel":"Full Stack Java"'
+expect_out "summary is cut to his classes" '"classLevel":"Full Stack Python"'
+check "teacher cannot use the student view" 403 GET /api/attendance/me
 
 echo
 echo "== student =="
@@ -367,6 +421,19 @@ photo_url_get "student picture visible to a student" "$SHARED_PHOTO" 200
 photo_upload "student cannot set another picture" "/api/students/$ENROLL_ID/photo" target/smoke/one.png 403
 check "cannot remove another picture" 403 DELETE "/api/students/$ENROLL_ID/photo"
 
+# The student's own attendance, and nothing above it: no class list, no roll, no summary.
+check "own attendance" 200 GET /api/attendance/me
+expect_in "own rate is reported" '"rate"'
+expect_in "own attendance splits by subject" '"subjects"'
+expect_in "own attendance splits by day" '"days"'
+expect_in "own attendance keeps the history" '"history"'
+check "own attendance for a range" 200 GET '/api/attendance/me?from=2026-10-12&to=2026-10-27'
+check "attendance page opens for a student" 200 GET /attendance.html
+check "cannot list classes to mark" 403 GET "/api/attendance/sessions?date=$ATT_MON"
+check "cannot open a class roll" 403 GET "/api/attendance/sheet?scheduleId=1&date=$ATT_MON"
+check "cannot read the academy summary" 403 GET /api/attendance/summary
+check "cannot mark attendance" 403 POST /api/attendance "{\"scheduleId\":1,\"date\":\"$ATT_MON\",\"entries\":[{\"studentId\":1,\"status\":\"PRESENT\"}]}"
+
 echo
 echo "== access control without a session =="
 rm -f "$JAR"
@@ -380,7 +447,11 @@ check "preview needs login" 401 POST /api/certificates/preview '{"studentIds":[1
 check "sign-in info needs login" 401 GET /api/students/1/login
 check "password change needs login" 401 POST /api/auth/password '{"currentPassword":"x","newPassword":"yyyyyyyy"}'
 check "profile picture needs login" 401 GET /api/profile/photo/1
+check "attendance lists need login" 401 GET /api/attendance/summary
+check "attendance marking needs login" 401 POST /api/attendance '{"scheduleId":1,"date":"2026-10-19","entries":[{"studentId":1,"status":"PRESENT"}]}'
+check "own attendance needs login" 401 GET /api/attendance/me
 check "portal page redirects" 302 GET /index.html
+check "attendance page redirects" 302 GET /attendance.html
 check "sign-in page is public" 200 GET /login.html
 expect_out "sign-in page does not publish demo passwords" "admin123"
 check "privacy policy is public" 200 GET /privacy.html

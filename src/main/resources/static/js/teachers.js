@@ -1,5 +1,5 @@
 (() => {
-    const { esc, get, post, put, del, avatar, statusBadge, recordForm, confirmDialog, toast, queryParam } = Portal;
+    const { esc, get, post, put, del, upload, avatar, statusBadge, recordForm, confirmDialog, toast, queryParam } = Portal;
     const content = document.getElementById('content');
 
     const state = { q: queryParam('q', ''), department: queryParam('department', ''), teachers: [], departments: [] };
@@ -23,6 +23,7 @@
         { name: 'joiningDate', label: 'Joining date', type: 'date' },
         { name: 'specialization', label: 'Specialization', span: 'full' },
         { name: 'qualification', label: 'Qualification', span: 'full' },
+        { name: 'photo', label: 'Profile picture (PNG, JPEG or WebP, up to 2 MB)', type: 'file', span: 'full' },
     ];
 
     async function load() {
@@ -157,14 +158,28 @@
     async function openForm(teacher) {
         await recordForm({
             title: teacher ? `Edit ${teacher.firstName} ${teacher.lastName}` : 'Add a teacher',
-            subtitle: teacher ? teacher.employeeCode : 'Employee codes and emails must be unique.',
+            subtitle: teacher
+                ? `${teacher.employeeCode} · choose a file only to replace the picture`
+                : 'Employee codes and emails must be unique. A picture can be added now or later.',
             fields: FIELDS,
             values: teacher || { status: 'ACTIVE', joiningDate: new Date().toISOString().slice(0, 10) },
             submitLabel: teacher ? 'Save changes' : 'Add teacher',
             save: async (values) => {
+                const photo = values.photo instanceof File ? values.photo : null;
+                const payload = { ...values };
+                delete payload.photo;
                 const saved = teacher
-                    ? await put(`api/teachers/${teacher.id}`, { id: teacher.id, ...values })
-                    : await post('api/teachers', values);
+                    ? await put(`api/teachers/${teacher.id}`, { id: teacher.id, ...payload })
+                    : await post('api/teachers', payload);
+                if (photo) {
+                    const form = new FormData();
+                    form.append('file', photo);
+                    try {
+                        await upload(`api/teachers/${saved.id}/photo`, form);
+                    } catch (error) {
+                        toast(`Saved, but the picture was not uploaded: ${error.message}`, 'err');
+                    }
+                }
                 toast(teacher ? `${saved.firstName} ${saved.lastName} updated` : `${saved.firstName} ${saved.lastName} added`);
                 state.departments = await get('api/teachers/departments');
                 await refresh();

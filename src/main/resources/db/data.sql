@@ -113,6 +113,35 @@ INSERT IGNORE INTO enrollments (id, student_id, subject_id, enrolled_at) VALUES
  (26,9,11,'2025-06-02'),(27,9,12,'2025-06-02'),(28,10,9,'2025-06-02'),(29,10,10,'2025-06-02'),(30,10,12,'2025-06-02'),
  (31,11,13,'2025-06-04'),(32,11,14,'2025-06-04'),(33,11,15,'2025-06-04'),(34,12,14,'2025-06-04'),(35,12,15,'2025-06-04'),
  (36,12,16,'2025-06-04');
+-- Attendance for the two school weeks before the demo date. The timetable decides which sessions
+-- ran on each date, and the marks are derived from the ids so every boot produces the same history
+-- instead of a fresh random one. Today is deliberately left unmarked so it can be taken in the UI.
+INSERT IGNORE INTO attendance (student_id, subject_id, class_level, section, session_date, start_time, status)
+SELECT s.id, cs.subject_id, cs.class_level, cs.section, d.session_date, cs.start_time,
+       CASE
+           WHEN MOD(s.id * 5 + cs.id * 3 + DAYOFYEAR(d.session_date), 19) = 0 THEN 'ABSENT'
+           WHEN MOD(s.id * 7 + cs.id * 2 + DAYOFYEAR(d.session_date), 13) = 0 THEN 'LATE'
+           ELSE 'PRESENT'
+       END
+FROM class_schedules cs
+JOIN students s
+  ON s.class_level = cs.class_level
+ AND s.section <=> cs.section
+ AND s.status = 'ACTIVE'
+JOIN (
+    SELECT DATE '2026-10-12' AS session_date
+    UNION ALL SELECT DATE '2026-10-13'
+    UNION ALL SELECT DATE '2026-10-14'
+    UNION ALL SELECT DATE '2026-10-15'
+    UNION ALL SELECT DATE '2026-10-16'
+    UNION ALL SELECT DATE '2026-10-19'
+    UNION ALL SELECT DATE '2026-10-20'
+    UNION ALL SELECT DATE '2026-10-21'
+    UNION ALL SELECT DATE '2026-10-22'
+    UNION ALL SELECT DATE '2026-10-23'
+) d
+WHERE cs.day_of_week = WEEKDAY(d.session_date) + 1;
+
 INSERT IGNORE INTO contacts (id, category, name, department, phone, alternate_phone, email, location, available_hours) VALUES
  (1, 'ADMISSIONS', 'Admissions Desk', 'Front Office', '+91 80 4000 1000', '+91 80 4000 1001', 'admissions@academy.edu', 'Main Gate, Block A', 'Mon-Sat 08:30 - 16:30'),
  (2, 'OFFICE', 'Academy Office', 'Administration', '+91 80 4000 1010', NULL, 'office@academy.edu', 'Block A - Ground', 'Mon-Fri 09:00 - 17:00'),

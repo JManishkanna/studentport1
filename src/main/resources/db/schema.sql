@@ -84,6 +84,26 @@ CREATE TABLE IF NOT EXISTS enrollments (
     CONSTRAINT uq_enrollment UNIQUE (student_id, subject_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
+-- One row per student, session and date. The class, subject and start time are copied from the
+-- timetable at the moment attendance is taken, so a later timetable edit cannot rewrite history.
+CREATE TABLE IF NOT EXISTS attendance (
+    id           BIGINT      AUTO_INCREMENT PRIMARY KEY,
+    student_id   BIGINT      NOT NULL,
+    subject_id   BIGINT      NOT NULL,
+    class_level  VARCHAR(30) NOT NULL,
+    section      VARCHAR(10),
+    session_date DATE        NOT NULL,
+    start_time   TIME        NOT NULL,
+    status       VARCHAR(10) NOT NULL COMMENT 'PRESENT | ABSENT | LATE',
+    marked_by    BIGINT,
+    marked_at    TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_attendance_student FOREIGN KEY (student_id) REFERENCES students (id) ON DELETE CASCADE,
+    CONSTRAINT fk_attendance_subject FOREIGN KEY (subject_id) REFERENCES subjects (id) ON DELETE CASCADE,
+    CONSTRAINT uq_attendance_session UNIQUE (student_id, subject_id, session_date, start_time),
+    INDEX idx_attendance_class (class_level, section, session_date),
+    INDEX idx_attendance_date (session_date)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
 CREATE TABLE IF NOT EXISTS contacts (
     id              BIGINT       AUTO_INCREMENT PRIMARY KEY,
     category        VARCHAR(30)  NOT NULL,

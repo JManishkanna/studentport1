@@ -1,5 +1,5 @@
 (() => {
-    const { esc, get, del, upload, avatar, statusBadge, formatDate, formatTime, dayName, queryParam, toast, confirmDialog } = Portal;
+    const { esc, get, put, del, upload, avatar, statusBadge, formatDate, formatTime, dayName, queryParam, toast, confirmDialog, recordForm } = Portal;
     const content = document.getElementById('content');
 
     function groupBy(items, keyFn) {
@@ -67,7 +67,8 @@
                             ${statusBadge(teacher.status)}
                             ${canAdmin ? `<input id="photo-file" type="file" accept="image/png,image/jpeg,image/webp" hidden>
                                 <button class="btn btn-ghost btn-sm" id="photo-pick">Change photo</button>
-                                <button class="btn btn-ghost btn-sm" id="photo-remove"${teacher.photoUrl ? '' : ' disabled'}>Remove photo</button>` : ''}
+                                <button class="btn btn-ghost btn-sm" id="photo-remove"${teacher.photoUrl ? '' : ' disabled'}>Remove photo</button>
+                                <button class="btn btn-ghost btn-sm" id="edit">Edit profile</button>` : ''}
                         </div>
                     </div>
                 </div>
@@ -145,7 +146,10 @@
                 </div>
             </section>`;
 
-        if (canAdmin) bindPhoto(teacher);
+        if (canAdmin) {
+            bindPhoto(teacher);
+            bindEdit(teacher);
+        }
     }
 
     async function reload() {
@@ -183,6 +187,44 @@
             } catch (error) {
                 toast(error.message, 'err');
             }
+        });
+    }
+
+    /** Administrators can correct any teacher's record from the profile, not just the directory. */
+    function bindEdit(teacher) {
+        document.getElementById('edit').addEventListener('click', () => openEdit(teacher));
+    }
+
+    async function openEdit(teacher) {
+        const statuses = [
+            { value: 'ACTIVE', label: 'Active' },
+            { value: 'ON_LEAVE', label: 'On leave' },
+            { value: 'INACTIVE', label: 'Inactive' },
+        ];
+        await recordForm({
+            title: `Edit ${teacher.firstName} ${teacher.lastName}`,
+            subtitle: teacher.employeeCode,
+            fields: [
+                { name: 'employeeCode', label: 'Employee code', required: true },
+                { name: 'department', label: 'Department', required: true },
+                { name: 'firstName', label: 'First name', required: true },
+                { name: 'lastName', label: 'Last name', required: true },
+                { name: 'designation', label: 'Designation' },
+                { name: 'status', label: 'Status', type: 'select', options: statuses },
+                { name: 'email', label: 'Email', type: 'email', required: true },
+                { name: 'phone', label: 'Phone' },
+                { name: 'officeRoom', label: 'Office / room' },
+                { name: 'joiningDate', label: 'Joining date', type: 'date' },
+                { name: 'specialization', label: 'Specialization', span: 'full' },
+                { name: 'qualification', label: 'Qualification', span: 'full' },
+            ],
+            values: teacher,
+            submitLabel: 'Save changes',
+            save: async (values) => {
+                await put(`api/teachers/${teacher.id}`, { id: teacher.id, ...values });
+                toast('Profile updated');
+                await reload();
+            },
         });
     }
 

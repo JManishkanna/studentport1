@@ -1,5 +1,5 @@
 (() => {
-    const { esc, get, post, put, del, statusBadge, avatar, recordForm, confirmDialog, toast, queryParam } = Portal;
+    const { esc, get, post, put, del, upload, statusBadge, avatar, recordForm, confirmDialog, toast, queryParam } = Portal;
     const content = document.getElementById('content');
 
     const state = {
@@ -39,6 +39,7 @@
             { name: 'guardianPhone', label: 'Guardian phone' },
             { name: 'guardianEmail', label: 'Guardian email', type: 'email' },
             { name: 'addressLine', label: 'Address', type: 'textarea', span: 'full', rows: 2 },
+            { name: 'photo', label: 'Profile picture (PNG, JPEG or WebP, up to 2 MB)', type: 'file', span: 'full' },
         ];
     }
 
@@ -200,14 +201,28 @@
         const fields = studentFields();
         await recordForm({
             title: student ? `Edit ${student.firstName} ${student.lastName}` : 'Admit a new student',
-            subtitle: student ? `Roll ${student.rollNumber}` : 'Roll numbers and emails must be unique across the academy.',
+            subtitle: student
+                ? `Roll ${student.rollNumber} · choose a file only to replace the picture`
+                : 'Roll numbers and emails must be unique across the academy. A picture can be added now or later.',
             fields,
             submitLabel: student ? 'Save changes' : 'Admit student',
             values: student || { status: 'ACTIVE', admissionDate: new Date().toISOString().slice(0, 10) },
             save: async (values) => {
+                const photo = values.photo instanceof File ? values.photo : null;
+                const payload = { ...values };
+                delete payload.photo;
                 const savedRecord = student
-                    ? await put(`api/students/${student.id}`, { id: student.id, ...values })
-                    : await post('api/students', values);
+                    ? await put(`api/students/${student.id}`, { id: student.id, ...payload })
+                    : await post('api/students', payload);
+                if (photo) {
+                    const form = new FormData();
+                    form.append('file', photo);
+                    try {
+                        await upload(`api/students/${savedRecord.id}/photo`, form);
+                    } catch (error) {
+                        toast(`Saved, but the picture was not uploaded: ${error.message}`, 'err');
+                    }
+                }
                 toast(student ? `${savedRecord.firstName} ${savedRecord.lastName} updated` : `${savedRecord.firstName} admitted as ${savedRecord.rollNumber}`);
                 await refresh();
             },

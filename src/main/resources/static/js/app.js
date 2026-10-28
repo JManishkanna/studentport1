@@ -12,6 +12,7 @@ const Portal = (() => {
         { key: 'students', label: 'Students', href: 'students.html', icon: 'students', roles: ['ADMIN', 'TEACHER'] },
         { key: 'teachers', label: 'Teachers', href: 'teachers.html', icon: 'teachers', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
         { key: 'schedule', label: 'Timetable', href: 'schedule.html', icon: 'schedule', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
+        { key: 'attendance', label: 'Attendance', href: 'attendance.html', icon: 'attendance', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
         { key: 'contacts', label: 'Contacts', href: 'contacts.html', icon: 'contacts', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
         { key: 'certificates', label: 'Certificates', href: 'certificates.html', icon: 'certificates', roles: ['ADMIN'] },
         { section: 'Account' },
@@ -26,6 +27,7 @@ const Portal = (() => {
         students: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
         teachers: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
         schedule: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/>',
+        attendance: '<path d="M9 4h6M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1z"/><rect x="4" y="4" width="16" height="18" rx="2"/><path d="m8.5 13 2 2 4-4"/>',
         contacts: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>',
         certificates: '<circle cx="12" cy="8" r="6"/><path d="M15.5 13.5 17 22l-5-3-5 3 1.5-8.5"/>',
         user: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3"/><path d="M6.5 19a6 6 0 0 1 11 0"/>',
@@ -255,6 +257,9 @@ const Portal = (() => {
             control = `<select ${attrs}>${field.emptyLabel ? `<option value="">${esc(field.emptyLabel)}</option>` : ''}${options}</select>`;
         } else if (field.type === 'textarea') {
             control = `<textarea ${attrs} rows="${field.rows || 3}">${esc(value ?? '')}</textarea>`;
+        } else if (field.type === 'file') {
+            const accept = field.accept || 'image/png,image/jpeg,image/webp';
+            control = `<input type="file" ${attrs} accept="${esc(accept)}">`;
         } else {
             const type = field.type || 'text';
             control = `<input type="${type}" ${attrs} value="${esc(value ?? '')}"${field.step ? ` step="${field.step}"` : ''}${field.min !== undefined ? ` min="${field.min}"` : ''}${field.max !== undefined ? ` max="${field.max}"` : ''}>`;
@@ -300,7 +305,12 @@ const Portal = (() => {
                 event.preventDefault();
                 const collected = {};
                 for (const field of fields) {
-                    const raw = form.elements[field.name].value;
+                    const element = form.elements[field.name];
+                    if (field.type === 'file') {
+                        collected[field.name] = element.files && element.files[0] ? element.files[0] : null;
+                        continue;
+                    }
+                    const raw = element.value;
                     collected[field.name] = raw === '' ? null : raw;
                 }
                 const missing = fields.filter(f => f.required && (collected[f.name] === null || collected[f.name] === ''));
