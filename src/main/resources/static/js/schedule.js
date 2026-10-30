@@ -296,10 +296,10 @@
     const toClock = (minutes) => `${String(Math.floor(minutes / 60) % 24).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
     const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
 
-    /** One entry per subject and faculty already on this class's timetable, so re-planning starts filled. */
-    function existingPeriods(classLevel, section) {
+    /** One entry per subject and faculty on a class's timetable, so re-planning starts filled. */
+    function distinctPeriods(rows, classLevel, section) {
         const seen = new Set();
-        return state.rows
+        return rows
             .filter(row => row.classLevel === classLevel && (!section || row.section === section))
             .sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime))
             .filter(row => {
@@ -313,8 +313,8 @@
     }
 
     /** Whoever already teaches this subject to this class, or to any class, is the obvious pick. */
-    function suggestTeacher(subjectId, classLevel) {
-        const matches = state.rows.filter(row => String(row.subjectId) === String(subjectId));
+    function suggestTeacher(subjectId, classLevel, source) {
+        const matches = (source || state.rows).filter(row => String(row.subjectId) === String(subjectId));
         const forClass = matches.find(row => row.classLevel === classLevel);
         const teacherId = (forClass || matches[0] || {}).teacherId;
         return teacherId ? String(teacherId) : '';
@@ -322,10 +322,14 @@
 
     async function openPlanner() {
         const startLevel = state.classLevel || (state.levels[0] || '');
-        const periods = existingPeriods(startLevel, state.section);
+        const levels = [...new Set(state.levels.concat(state.rows.map(row => row.classLevel)))]
+            .sort((a, b) => a.localeCompare(b));
+        if (startLevel && !levels.includes(startLevel)) levels.unshift(startLevel);
+        const periods = distinctPeriods(state.rows, startLevel, state.section);
         if (!periods.length) periods.push({ subjectId: '', teacherId: '' });
         const known = state.rows.find(row => row.classLevel === startLevel
             && (!state.section || row.section === state.section));
+        let rows = state.rows;
 
         const backdrop = document.createElement('div');
         backdrop.className = 'modal-backdrop';
@@ -339,8 +343,8 @@
                     <div class="modal-grid">
                         <div class="field">
                             <label for="p-level">Class level *</label>
-                            ${state.levels.length
-        ? `<select id="p-level"><option value="">Choose a class</option>${state.levels.map(l => `<option value="${esc(l)}"${l === startLevel ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`
+                            ${levels.length
+        ? `<select id="p-level"><option value="">Choose a class</option>${levels.map(l => `<option value="${esc(l)}"${l === startLevel ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`
         : `<input id="p-level" type="text" value="${esc(startLevel)}" placeholder="Full Stack Java">`}
                         </div>
                         <div class="field"><label for="p-section">Section *</label><input id="p-section" type="text" value="${esc(state.section || 'A')}"></div>
@@ -406,7 +410,7 @@
                 row.querySelector('[data-p=subject]').addEventListener('change', (event) => {
                     periods[index].subjectId = event.target.value;
                     if (!periods[index].chosen) {
-                        periods[index].teacherId = suggestTeacher(event.target.value, form.elements['p-level'].value);
+                        periods[index].teacherId = suggestTeacher(event.target.value, form.elements['p-level'].value, rows);
                         periods[index].chosen = Boolean(periods[index].teacherId);
                         drawPeriods();
                     }
@@ -473,17 +477,32 @@
             drawPeriods();
             draw();
         });
-        backdrop.querySelector('#reuse').addEventListener('click', () => {
-            const reuse = existingPeriods(form.elements['p-level'].value, form.elements['p-section'].value.trim().toUpperCase());
-            if (!reuse.length) {
-                errorBox.textContent = 'This class has no sessions on the timetable yet, so there is nothing to reuse.';
-                return;
+        backdrop.querySelector('#reuse').addEventListener('click', async () => {
+            const level = form.elements['p-level'].value;
+            const section = form.elements['p-section'].value.trim().toUpperCase();
+            if (!level) { errorBox.textContent = 'Choose the class to reuse first.'; return; }
+            const button = backdrop.querySelector('#reuse');
+            button.disabled = true;
+            try {
+                // Ask the server rather than reading the grid: the page may be filtered to another class.
+                const params = new URLSearchParams({ classLevel: level });
+                if (section) params.set('section', section);
+                rows = await get(`api/schedules?${params.toString()}`);
+                const reuse = distinctPeriods(rows, level, section);
+                if (!reuse.length) {
+                    errorBox.textContent = `${level}${section ? ' ' + section : ''} has no sessions on the timetable yet, so there is nothing to reuse.`;
+                    return;
+                }
+                periods.length = 0;
+                periods.push(...reuse);
+                errorBox.textContent = '';
+                drawPeriods();
+                draw();
+            } catch (error) {
+                errorBox.textContent = error.message || 'That class timetable could not be read.';
+            } finally {
+                button.disabled = false;
             }
-            periods.length = 0;
-            periods.push(...reuse);
-            errorBox.textContent = '';
-            drawPeriods();
-            draw();
         });
         ['p-first', 'p-length', 'p-break', 'p-perday'].forEach(id =>
             backdrop.querySelector('#' + id).addEventListener('input', draw));
