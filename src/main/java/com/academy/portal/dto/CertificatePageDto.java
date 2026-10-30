@@ -8,6 +8,7 @@ import java.util.List;
  */
 public record CertificatePageDto(
         String academyName,
+        List<String> sealLines,
         String studentName,
         String rollLine,
         String statement,

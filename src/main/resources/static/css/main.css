@@ -605,28 +605,55 @@ dl.facts code { background: var(--code-bg); padding: 1px 6px; border-radius: 5px
     background: #fff;
     aspect-ratio: 1.414 / 1;
     overflow: hidden;
-    border: 2px solid #1f2a44;
-    outline: 1px solid #1f2a44;
-    outline-offset: 5px;
+    border: 3px solid #0e2a47;
     box-shadow: var(--shadow);
     padding: 4.5% 6% 3.5%;
     display: flex; flex-direction: column; align-items: center; text-align: center;
     font-family: "Times New Roman", Times, serif;
-    color: #1f2a44;
+    color: #14263c;
 }
-.cert-sheet .academy { font-size: .72rem; font-weight: 700; letter-spacing: .18em; color: #5a6478; }
-.cert-sheet .heading { font-size: 1.75rem; font-weight: 700; letter-spacing: .03em; margin: 6px 0 0; }
-.cert-sheet .certify { font-size: .84rem; font-style: italic; color: #5a6478; margin: 12px 0 4px; }
-.cert-sheet .graduate { font-size: 1.95rem; font-weight: 700; }
-.cert-sheet .roll { font-size: .76rem; color: #5a6478; margin: 2px 0 16px; }
+/* navy, gold, navy - the same three bands the PDF strokes */
+.cert-sheet::before { content: ''; position: absolute; inset: 5px; border: 1px solid #b08d2e; pointer-events: none; }
+.cert-sheet::after { content: ''; position: absolute; inset: 11px; border: 1px solid #0e2a47; pointer-events: none; }
+.cert-sheet .academy { font-size: .72rem; font-weight: 700; letter-spacing: .18em; color: #b08d2e; }
+.cert-sheet .heading { font-size: 1.75rem; font-weight: 700; letter-spacing: .03em; color: #0e2a47; margin: 6px 0 0; }
+.cert-sheet .rule { height: 1px; margin: 7px 0 8px; }
+.cert-sheet .rule.gold { width: 26%; background: #b08d2e; }
+.cert-sheet .rule.navy { width: 36%; background: #0e2a47; }
+.cert-sheet .certify { font-size: .84rem; font-style: italic; color: #54637e; margin: 2px 0 4px; }
+.cert-sheet .graduate { font-size: 1.95rem; font-weight: 700; color: #0e2a47; }
+.cert-sheet .roll { font-size: .76rem; color: #54637e; margin: 2px 0 16px; }
 .cert-sheet .statement { font-size: .86rem; max-width: 78%; margin: 0 0 14px; }
-.cert-sheet .subjects { font-size: 1rem; font-weight: 700; margin: 0 0 4px; }
-.cert-sheet .when { font-size: .76rem; color: #5a6478; margin-bottom: auto; }
-.cert-sheet .sign { display: grid; grid-template-columns: 1fr 1fr; gap: 8%; width: 84%; margin: 12px 0 10px; }
-.cert-sheet .sign > div { border-top: 1px solid #1f2a44; padding-top: 6px; text-align: left; }
-.cert-sheet .sign strong { display: block; font-size: .84rem; }
-.cert-sheet .sign span { font-size: .72rem; color: #5a6478; }
-.cert-sheet .serial { font-size: .68rem; color: #5a6478; }
+.cert-sheet .subjects { font-size: 1rem; font-weight: 700; color: #0e2a47; margin: 0 0 4px; }
+.cert-sheet .when { font-size: .78rem; font-weight: 700; color: #b08d2e; margin-bottom: auto; }
+.cert-sheet .sign { display: grid; grid-template-columns: 1fr auto 1fr; gap: 4%; width: 90%; margin: 12px 0 10px; align-items: center; }
+.cert-sheet .sign > div:not(.seal) { border-top: 1px solid #0e2a47; padding-top: 6px; text-align: left; }
+.cert-sheet .sign strong { display: block; font-size: .84rem; color: #0e2a47; }
+.cert-sheet .sign span { font-size: .72rem; color: #54637e; }
+/* the pressed seal: gold scalloped rim, navy face, gold ring, name in bright gold */
+.cert-sheet .seal {
+    position: relative;
+    width: 9.2%;
+    min-width: 54px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: #0e2a47;
+    border: 2px dashed #b08d2e;
+}
+.cert-sheet .seal .ring {
+    position: absolute;
+    inset: 17%;
+    border: 1px solid #b08d2e;
+    border-radius: 50%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #d9b45b;
+    font-size: .46rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    line-height: 1.15;
+    overflow: hidden;
+}
+.cert-sheet .serial { font-size: .68rem; color: #54637e; }
 
 /* ============================================================
    Responsive

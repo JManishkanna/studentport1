@@ -103,6 +103,19 @@ cert() { # cert LABEL BODY EXPECTED_PAGES EXPECTED_FILENAME_FRAGMENT
     fi
 }
 
+cert_has() { # cert_has LABEL NEEDLE -> looks for NEEDLE in the pdf the last cert call kept
+    local label="$1" needle="$2" got
+    got=$(grep -aoc -- "$needle" /tmp/portal-cert.pdf)
+    got=${got:-0}
+    if [ "$got" -gt 0 ]; then
+        PASS=$((PASS + 1))
+        printf '  ok   %-46s %s in the pdf\n' "$label" "$got"
+    else
+        FAIL=$((FAIL + 1))
+        printf '  FAIL %-46s absent from the pdf\n' "$label"
+    fi
+}
+
 # A profile picture arrives as multipart, so it needs its own request helper. The answer is left
 # in /tmp/portal-resp.json like the other helpers, for expect_in to read.
 photo_upload() { # photo_upload LABEL PATH FILE EXPECTED_STATUS
@@ -320,12 +333,14 @@ check "contact deleted" 200 DELETE "/api/contacts/$CONTACT_ID"
 
 cert "one certificate" '{"studentIds":[1],"conferredOn":"2026-10-30","term":"2026-ODD"}' 1 'graduation-certificate-ACAD-1101.pdf'
 cert "one certificate per graduate" '{"studentIds":[1,3,9],"conferredOn":"2026-12-15","term":"2026-ODD"}' 3 'graduation-certificates-3-students.pdf'
+cert_has "the seal is drawn on the sheet" '/Subtype/Form'
 check "certificate without a date" 400 POST /api/certificates '{"studentIds":[1]}'
 check "certificate with no student" 400 POST /api/certificates '{"studentIds":[],"conferredOn":"2026-10-30"}'
 check "certificate for a ghost" 404 POST /api/certificates '{"studentIds":[999999],"conferredOn":"2026-10-30"}'
 
 check "certificate preview" 200 POST /api/certificates/preview '{"studentIds":[1,9],"conferredOn":"2026-10-30","term":"2026-ODD"}'
 expect_in "preview carries the heading" '"heading":"CERTIFICATE OF GRADUATION"'
+expect_in "preview carries the seal legend" '"sealLines":["ACADEMY","PORTAL"]'
 expect_in "preview carries each graduate" 'Roll number ACAD-1101'
 expect_in "preview names the signing faculty" 'Kavita Anand'
 expect_out "preview leaves out the class division" 'Section '

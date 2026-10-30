@@ -270,18 +270,24 @@
     }
 
     function sheet(view, page) {
+        const signatures = page.signatures.map(s => `<div><strong>${esc(s.name)}</strong><span>${esc(s.role)}</span></div>`);
+        const pressed = (page.sealLines || []).map(esc).join('<br>');
         return `
             <article class="cert-sheet">
                 <div class="academy">${esc(page.academyName)}</div>
                 <div class="heading">${esc(view.heading)}</div>
+                <div class="rule gold"></div>
                 <div class="certify">${esc(view.certifyLine)}</div>
                 <div class="graduate">${esc(page.studentName)}</div>
+                <div class="rule navy"></div>
                 <div class="roll">${esc(page.rollLine)}</div>
                 <p class="statement">${esc(page.statement)}</p>
                 <div class="subjects">${esc(page.subjects)}</div>
                 <div class="when">${esc(page.conferredLine)}</div>
                 <div class="sign">
-                    ${page.signatures.map(s => `<div><strong>${esc(s.name)}</strong><span>${esc(s.role)}</span></div>`).join('')}
+                    ${signatures[0]}
+                    <div class="seal" aria-hidden="true"><span class="ring">${pressed}</span></div>
+                    ${signatures[1]}
                 </div>
                 <div class="serial">${esc(page.serialLine)}</div>
             </article>`;

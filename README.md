@@ -186,7 +186,7 @@ Both write a fresh hash and update the flag. Administrators change their own pas
 | Timetable | `static/schedule.html` | Week grid with class/section/teacher/subject filters; admin builds sessions |
 | Attendance | `static/attendance.html` | ADMIN and TEACHER: rate tiles, attendance-by-class and daily charts, then take or review the sheet for any class on the day; STUDENT: own rate, per-subject and daily charts and the full history |
 | Contacts | `static/contacts.html` | Role-scoped people directory (see below) plus department desks and helplines grouped by category |
-| Certificates | `static/certificates.html` | ADMIN only: tick one or many graduates, preview the wording, then download the certificate PDFs |
+| Certificates | `static/certificates.html` | ADMIN only: tick one or many graduates, preview the navy-and-gold sheet, then download the certificate PDFs |
 | Account settings | `static/account.html` | Every role: profile picture, sign-in details and a password change; admins also edit the published administration name, email and phone here |
 | Privacy policy | `static/privacy.html` | Public: what the portal stores, who can see it, cookies, retention and how to ask for removal |
 | Terms and conditions | `static/terms.html` | Public: acceptable use, accounts, records and availability |
@@ -294,6 +294,19 @@ enrolled in, the conferral date and term, and two signature rules — the
 programme's Head of Department, or the first of that programme's faculty by surname when no HoD is on
 staff, beside the administrator who issued the run. A `CERT-<roll>-<yyyyMMdd>` serial line closes the
 page.
+
+**The sheet is drawn in navy and gold.** Three bands frame the page — a 3 pt navy rule, a 1.1 pt gold
+rule and a 0.6 pt navy hairline, with a gold bead pressed over each corner. The academy name and the
+conferral line are gold, the heading, the graduate's name and the subject list are navy, and a gold
+hairline sits under the heading with a navy one under the name. Between the two signature rules sits
+the academy seal: a scalloped gold disc, a navy face inside a double gold ring and the academy name
+pressed across it in bright gold. The seal is drawn into a PDF form XObject once per page and placed
+in the middle column of the signature table, so it stays centred on the page whatever the names
+around it are. Colours are pinned in `CertificateService` (`NAVY 0E2A47`, `GOLD B08D2E`,
+`GOLD_BRIGHT D9B45B`) and mirrored by the same hex values in the `.cert-sheet` block of
+`css/main.css`, so the preview shows the sheet as it prints rather than in the browser's current
+theme. `sealLines` is part of `CertificatePageDto` for the same reason — both renderers read the
+server's split of the academy name instead of inventing their own.
 
 ### Profile pictures
 
@@ -468,7 +481,7 @@ they cannot be connected from this build environment.
 ```
 academy-portal/
 ├── pom.xml
-├── scripts/smoke-test.sh                 end-to-end role + endpoint checks (252 assertions)
+├── scripts/smoke-test.sh                 end-to-end role + endpoint checks (254 assertions)
 └── src/main/
     ├── java/com/academy/portal/
     │   ├── AcademyPortalApplication.java
