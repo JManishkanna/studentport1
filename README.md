@@ -519,13 +519,68 @@ hosting platform's load balancer) in front of the jar:
    hostname; CSRF cookies are same-origin, so the portal must be reached at one name only.
 
 The domain record and certificate must be created in the DNS and hosting accounts for the site;
-they cannot be connected from this build environment.
+they cannot be connected from this build environment. On Firebase that whole path — Hosting for the
+domain and certificate, Cloud Run for the jar, Cloud SQL for the data — is spelled out in section 9.
 
-## 9. Layout
+## 9. Hosting on Firebase
+
+Firebase Hosting serves **files**, and this portal has no build step to serve: sign-in, every
+`/api/**` call, the PDF certificates and the profile pictures all happen inside the jar. So the
+working shape is three services, with Firebase Hosting as the front door:
+
+```
+your domain  →  Firebase Hosting (TLS + CDN)  →  Cloud Run (the jar)  →  Cloud SQL (MySQL 8)
+```
+
+`firebase.json` sends **everything** to Cloud Run through one catch-all rewrite rather than serving
+`src/main/resources/static` from Hosting. That is deliberate: Hosting only falls back to a rewrite
+when no file matches, so a page like `/index.html` would come off the CDN without ever meeting
+Spring Security, and the `JSESSIONID`/`XSRF-TOKEN` pair would be issued by one backend and replayed
+against another.
+
+**What you have to do** — none of it can run from this build environment, because it needs a Google
+account and a billing relationship:
+
+1. **Sign in and pick a project.** `npx -y firebase-tools@latest login`, then either
+   `firebase projects:create <id>` for a new one or `firebase use --add` for an existing one.
+   The project needs the **Blaze** plan: Cloud Run and Cloud SQL have no free-tier-only path.
+2. **Create the database.** A Cloud SQL for MySQL 8 instance in the same region as
+   `firebase.json` (`asia-south1`), a user `academy`, and grant it rights on `academy_portal`.
+   The JDBC URL carries `createDatabaseIfNotExist=true` and `spring.sql.init` runs the schema, so
+   the database fills itself on the first boot — nothing to import.
+3. **Store the two secrets** (never in a file that gets committed):
+   `academy-mysql-password` and `academy-default-password` in Secret Manager, which is what
+   `cloudbuild.yaml` mounts as `MYSQL_PASSWORD` and `ACADEMY_DEFAULT_PASSWORD`.
+4. **Build and publish the image.** `gcloud builds submit --config=cloudbuild.yaml` — Cloud Build
+   runs the `Dockerfile`, so no Maven or Docker is needed on your machine. The step deploys the
+   service named `academy-portal`, which is the name `firebase.json` rewrites to.
+5. **Attach the front door.** `npx -y firebase-tools@latest deploy --only hosting` gives you
+   `https://<project>.web.app`. Add the real hostname under **Hosting → Add custom domain** in the
+   console and point DNS at the certificate Firebase issues; the app needs no change, because
+   `server.forward-headers-strategy=framework` already trusts the proxy's forwarded scheme.
+
+**Two things to change before real students reach it.** Set `PORTAL_SEED_ADMIN_PASSWORD` (or edit
+the row and turn off `portal.seed.users.enabled`) — `admin`/`admin123` is published in this README.
+And once the demo rows are in, point `SPRING_SQL_INIT_DATA_LOCATIONS` away from `db/data.sql`:
+that script re-runs on every boot, so a restart would push the seed students, faculty and timetable
+back into a live register.
+
+| Symptom | Cause / fix |
+| --- | --- |
+| Sign-in succeeds, then the next page bounces back to `/login.html` | Two Cloud Run instances and sessions live in one JVM's memory — keep `--min-instances=1`, or move to a shared session store |
+| First request after a quiet period takes ~10 s | Cold start. `--min-instances=1` removes it, at the cost of running continuously |
+| `MYSQL_PASSWORD` missing at boot | The secret is not attached to the service, or the service account lacks `roles/secretmanager.secretAccessor` |
+| `Communications link failure` on Cloud Run | The instance is not in `--set-cloudsql-instances`, or it is in a different region/network |
+
+## 10. Layout
 
 ```
 academy-portal/
 ├── pom.xml
+├── Dockerfile                            multi-stage build, used by Cloud Build (section 9)
+├── cloudbuild.yaml                       builds, pushes and deploys the Cloud Run service
+├── firebase.json                         Hosting rewrite: every path to that service
+├── hosting/robots.txt                    the only file Hosting serves itself; it blocks crawlers
 ├── scripts/smoke-test.sh                 end-to-end role + endpoint checks (279 assertions)
 └── src/main/
     ├── java/com/academy/portal/
@@ -544,7 +599,7 @@ academy-portal/
                          attendance.html draw — no chart library, no build step)
 ```
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
 | Symptom | Cause / fix |
 | --- | --- |

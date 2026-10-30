@@ -1,0 +1,40 @@
+# Builds and publishes the portal image, then updates the Cloud Run service that
+# firebase.json points at. Run it with:
+#   gcloud builds submit --config=cloudbuild.yaml --region=asia-south1
+#
+# Secrets are read from Secret Manager, never from this file:
+#   academy-mysql-password     the Cloud SQL user's password
+#   academy-default-password   the shared first sign-in password for students and faculty
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ['build', '-t', '$_IMAGE', '.']
+
+  - name: gcr.io/cloud-builders/docker
+    args: ['push', '$_IMAGE']
+
+  # --min-instances=1 keeps sign-in working: the session lives in this JVM's memory, so a
+  # second cold instance would answer the next request with no idea who is signed in.
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - academy-portal
+      - --image=$_IMAGE
+      - --region=$_REGION
+      - --platform=managed
+      - --allow-unauthenticated
+      - --min-instances=1
+      - --memory=512Mi
+      - --cpu=1
+      - --timeout=60s
+      - --set-cloudsql-instances=$_SQL
+      - --set-env-vars=MYSQL_HOST=127.0.0.1,MYSQL_DATABASE=academy_portal,MYSQL_USER=academy
+      - --update-secrets=MYSQL_PASSWORD=academy-mysql-password:latest,ACADEMY_DEFAULT_PASSWORD=academy-default-password:latest
+
+images: ['$_IMAGE']
+
+substitutions:
+  _REGION: asia-south1
+  _IMAGE: asia-south1-docker.pkg.dev/${PROJECT_ID}/academy/portal:${COMMIT_SHA}
+  _SQL: ${PROJECT_ID}:asia-south1:academy-db

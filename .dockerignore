@@ -1,0 +1,10 @@
+target/
+.git/
+.idea/
+.vscode/
+*.iml
+*.log
+cookies.txt
+scripts/
+README.md
+.firebase/

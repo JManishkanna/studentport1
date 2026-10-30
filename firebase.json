@@ -1,0 +1,14 @@
+{
+  "hosting": {
+    "public": "hosting",
+    "rewrites": [
+      {
+        "source": "**",
+        "run": {
+          "service": "academy-portal",
+          "region": "asia-south1"
+        }
+      }
+    ]
+  }
+}
