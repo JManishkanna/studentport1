@@ -5,6 +5,8 @@
     const isoDay = new Date().getDay();
     const today = isoDay === 0 ? 7 : isoDay;
 
+    const RATE_NOTE = 'A late arrival counts as attended. Bars below 75% are red, below 90% amber.';
+
     function fail(error) {
         content.innerHTML = `<div class="banner err">${esc(error.message)}</div>`;
     }
@@ -24,10 +26,11 @@
 
     /* ------------------------------------------------ student home */
     async function renderStudentView(me, today) {
-        const [profile, schedule, subjects] = await Promise.all([
+        const [profile, schedule, subjects, attendance] = await Promise.all([
             get('api/students/me'),
             get('api/students/me/schedule'),
             get('api/students/me/subjects'),
+            get('api/attendance/me'),
         ]);
 
         Portal.mountShell({
@@ -46,6 +49,23 @@
                 <div class="card stat teal"><span class="value">${subjects.length}</span><span class="label">Subjects enrolled</span></div>
                 <div class="card stat"><span class="value">${mine.length}</span><span class="label">Classes today (${esc(dayName(today))})</span></div>
                 <div class="card stat amber"><span class="value">${next ? `${formatTime(next.startTime)}` : '-'}</span><span class="label">First period</span></div>
+            </section>
+
+            <section class="card">
+                <div class="card-head">
+                    <h2>My attendance</h2>
+                    <span class="hint">${Number(attendance.rate || 0).toFixed(1)}% over ${attendance.total} marked session(s)</span>
+                </div>
+                <div class="card-body">
+                    ${Portal.rateBars(attendance.subjects, {
+            labelFor: row => row.subjectName,
+            noteFor: row => `${row.total} mark(s)`,
+            aria: 'My attendance rate by subject',
+            emptyTitle: 'No attendance recorded for you yet',
+            emptyHint: 'Your classes appear here once your faculty marks them.',
+        })}
+                    <p class="chart-note-line">${RATE_NOTE}</p>
+                </div>
             </section>
 
             <section class="grid profile">
@@ -111,6 +131,7 @@
         if (me.role === 'TEACHER' && me.teacherId) {
             mine = (await get(`api/teachers/${me.teacherId}/schedule`)).filter(row => row.dayOfWeek === today);
         }
+        const attendance = await get('api/attendance/summary');
 
         const actions = me.role === 'ADMIN'
             ? `<a class="btn btn-ghost" href="contacts.html">Contacts</a>
@@ -132,6 +153,23 @@
                 <div class="card stat"><span class="value">${stats.totalTeachers}</span><span class="label">Faculty members</span></div>
                 <div class="card stat"><span class="value">${stats.totalSubjects}</span><span class="label">Subjects offered</span></div>
                 <div class="card stat amber"><span class="value">${stats.sessionsToday}</span><span class="label">Classes today</span></div>
+            </section>
+
+            <section class="card">
+                <div class="card-head">
+                    <h2>Attendance rate</h2>
+                    <span class="hint">${Number(attendance.rate || 0).toFixed(1)}% from ${formatDate(attendance.from)} to ${formatDate(attendance.to)}${me.role === 'ADMIN' ? ' across the academy' : ' across your classes'}</span>
+                </div>
+                <div class="card-body">
+                    ${Portal.rateBars(attendance.classes, {
+            labelFor: row => row.section ? `${row.classLevel} · ${row.section}` : row.classLevel,
+            noteFor: row => `${row.total} mark(s)`,
+            aria: 'Attendance rate by class',
+            emptyTitle: 'No attendance recorded in this range',
+            emptyHint: 'Take attendance for any class and the chart fills in.',
+        })}
+                    <p class="chart-note-line">${RATE_NOTE}</p>
+                </div>
             </section>
 
             ${me.role === 'TEACHER' ? `

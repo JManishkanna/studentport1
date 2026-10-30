@@ -460,6 +460,11 @@ check "terms are public" 200 GET /terms.html
 expect_in "terms render" "Terms and conditions"
 check "favicon is public" 200 GET /favicon.svg
 check "theme script is public" 200 GET /js/theme.js
+check "shared script is served" 200 GET /js/app.js
+expect_in "shared percentage-bar builder exists" 'function rateBars'
+expect_in "shared daily-column builder exists" 'function rateColumns'
+check "dashboard script is served" 200 GET /js/dashboard.js
+expect_in "dashboard uses the shared bar builder" 'Portal.rateBars('
 
 echo
 echo "cleanup"

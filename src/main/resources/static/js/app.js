@@ -467,6 +467,81 @@ const Portal = (() => {
         return `<div class="empty"><strong>${esc(title)}</strong>${esc(hint || '')}</div>`;
     }
 
+    /** A bar below 75% reads as a problem, below 90% as a warning, so both charts colour the same way. */
+    function rateTone(pct) {
+        return pct >= 90 ? '' : pct >= 75 ? ' mid' : ' low';
+    }
+
+    /** Horizontal percentage bars, one per row. Built as SVG so it recolours with the theme. */
+    function rateBars(rows, { labelFor, noteFor = () => '', aria = 'Rate by group', emptyTitle = 'Nothing recorded yet', emptyHint = '' } = {}) {
+        if (!rows || !rows.length) {
+            return emptyState(emptyTitle, emptyHint);
+        }
+        const W = 660;
+        const rowH = 46;
+        const top = 8;
+        const left = 170;
+        const right = 74;
+        const barH = 16;
+        const track = W - left - right;
+        const H = top + rows.length * rowH;
+        const body = rows.map((row, index) => {
+            const y = top + index * rowH;
+            const pct = Math.max(0, Math.min(100, Number(row.rate) || 0));
+            const width = pct === 0 ? 0 : Math.max(3, track * pct / 100);
+            const label = labelFor(row);
+            return `<g>
+                <text class="chart-label" x="0" y="${y + 18}">${esc(label)}</text>
+                <text class="chart-note" x="0" y="${y + 32}">${esc(noteFor(row))}</text>
+                <rect class="chart-track" x="${left}" y="${y + 8}" width="${track}" height="${barH}" rx="4"></rect>
+                <rect class="chart-bar${rateTone(pct)}" x="${left}" y="${y + 8}" width="${width}" height="${barH}" rx="4">
+                    <title>${esc(label)}: ${pct.toFixed(1)}%</title>
+                </rect>
+                <text class="chart-value" x="${W}" y="${y + 21}" text-anchor="end">${pct.toFixed(1)}%</text>
+            </g>`;
+        }).join('');
+        return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(aria)}">${body}</svg>`;
+    }
+
+    /** Vertical percentage columns for the last `limit` rows, oldest on the left. */
+    function rateColumns(rows, { labelFor, noteFor = row => Number(row.rate || 0).toFixed(1), aria = 'Daily rate', limit = 10, emptyTitle = 'Nothing recorded yet', emptyHint = '' } = {}) {
+        const shown = (rows || []).slice(-limit);
+        if (!shown.length) {
+            return emptyState(emptyTitle, emptyHint);
+        }
+        const W = 660;
+        const H = 250;
+        const left = 38;
+        const right = 12;
+        const top = 16;
+        const bottom = 42;
+        const plotW = W - left - right;
+        const plotH = H - top - bottom;
+        const step = plotW / shown.length;
+        const barW = Math.min(46, step * 0.56);
+        const grid = [0, 25, 50, 75, 100].map(pct => {
+            const y = top + plotH - plotH * pct / 100;
+            return `<line class="chart-grid" x1="${left}" x2="${W - right}" y1="${y}" y2="${y}"></line>
+                <text class="chart-value" x="${left - 6}" y="${y + 3}" text-anchor="end">${pct}%</text>`;
+        }).join('');
+        const bars = shown.map((row, index) => {
+            const pct = Math.max(0, Math.min(100, Number(row.rate) || 0));
+            const height = Math.max(2, plotH * pct / 100);
+            const x = left + step * index + (step - barW) / 2;
+            const y = top + plotH - height;
+            return `<rect class="chart-bar${rateTone(pct)}" x="${x}" y="${y}" width="${barW}" height="${height}" rx="4">
+                    <title>${esc(labelFor(row))}: ${pct.toFixed(1)}%</title>
+                </rect>
+                <text class="chart-value" x="${x + barW / 2}" y="${H - bottom + 16}" text-anchor="middle">${esc(labelFor(row))}</text>
+                <text class="chart-note" x="${x + barW / 2}" y="${H - bottom + 30}" text-anchor="middle">${esc(noteFor(row))}</text>`;
+        }).join('');
+        return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(aria)}">
+            ${grid}
+            <line class="chart-axis" x1="${left}" x2="${W - right}" y1="${top + plotH}" y2="${top + plotH}"></line>
+            ${bars}
+        </svg>`;
+    }
+
     function queryParam(name, fallback = null) {
         const value = new URLSearchParams(window.location.search).get(name);
         return value === null || value === '' ? fallback : value;
@@ -547,6 +622,6 @@ const Portal = (() => {
         esc, get, post, put, del, boot, refreshCsrf, current, isAdmin, isTeacher, isStudent, label,
         initials, formatDate, formatTime, dayName, days: DAYS, age,
         mountShell, toast, recordForm, confirmDialog, loginDialog, statusBadge, avatar, slotCard, emptyState, queryParam,
-        download, upload, refreshMe,
+        rateBars, rateColumns, download, upload, refreshMe,
     };
 })();

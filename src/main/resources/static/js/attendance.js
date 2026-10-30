@@ -164,73 +164,23 @@
     }
 
     function classChart(rows) {
-        if (!rows || !rows.length) {
-            return Portal.emptyState('No attendance recorded in this range', 'Take attendance for any class and the chart fills in.');
-        }
-        const W = 660;
-        const rowH = 46;
-        const top = 8;
-        const left = 170;
-        const right = 74;
-        const barH = 16;
-        const track = W - left - right;
-        const H = top + rows.length * rowH;
-        const body = rows.map((row, index) => {
-            const y = top + index * rowH;
-            const pct = Math.max(0, Math.min(100, Number(row.rate) || 0));
-            const width = pct === 0 ? 0 : Math.max(3, track * pct / 100);
-            const tone = pct >= 90 ? '' : pct >= 75 ? ' mid' : ' low';
-            const label = row.section ? `${row.classLevel} · ${row.section}` : row.classLevel;
-            return `<g>
-                <text class="chart-label" x="0" y="${y + 18}">${esc(label)}</text>
-                <text class="chart-note" x="0" y="${y + 32}">${row.total} mark(s)</text>
-                <rect class="chart-track" x="${left}" y="${y + 8}" width="${track}" height="${barH}" rx="4"></rect>
-                <rect class="chart-bar${tone}" x="${left}" y="${y + 8}" width="${width}" height="${barH}" rx="4">
-                    <title>${esc(label)}: ${pct.toFixed(1)}%</title>
-                </rect>
-                <text class="chart-value" x="${W}" y="${y + 21}" text-anchor="end">${pct.toFixed(1)}%</text>
-            </g>`;
-        }).join('');
-        return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Attendance rate by class">${body}</svg>`;
+        return Portal.rateBars(rows, {
+            labelFor: row => row.section ? `${row.classLevel} · ${row.section}` : row.classLevel,
+            noteFor: row => `${row.total} mark(s)`,
+            aria: 'Attendance rate by class',
+            emptyTitle: 'No attendance recorded in this range',
+            emptyHint: 'Take attendance for any class and the chart fills in.',
+        });
     }
 
-    function dayChart(rows, labelFor = row => Number(row.rate || 0).toFixed(1)) {
-        const shown = (rows || []).slice(-DAYS_SHOWN);
-        if (!shown.length) {
-            return Portal.emptyState('No daily marks yet', 'Each day with attendance appears as a bar.');
-        }
-        const W = 660;
-        const H = 250;
-        const left = 38;
-        const right = 12;
-        const top = 16;
-        const bottom = 42;
-        const plotW = W - left - right;
-        const plotH = H - top - bottom;
-        const step = plotW / shown.length;
-        const barW = Math.min(46, step * 0.56);
-        const grid = [0, 25, 50, 75, 100].map(pct => {
-            const y = top + plotH - plotH * pct / 100;
-            return `<line class="chart-grid" x1="${left}" x2="${W - right}" y1="${y}" y2="${y}"></line>
-                <text class="chart-value" x="${left - 6}" y="${y + 3}" text-anchor="end">${pct}%</text>`;
-        }).join('');
-        const bars = shown.map((row, index) => {
-            const pct = Math.max(0, Math.min(100, Number(row.rate) || 0));
-            const height = Math.max(2, plotH * pct / 100);
-            const x = left + step * index + (step - barW) / 2;
-            const y = top + plotH - height;
-            const tone = pct >= 90 ? '' : pct >= 75 ? ' mid' : ' low';
-            return `<rect class="chart-bar${tone}" x="${x}" y="${y}" width="${barW}" height="${height}" rx="4">
-                    <title>${esc(shortDate(row.date))}: ${pct.toFixed(1)}%</title>
-                </rect>
-                <text class="chart-value" x="${x + barW / 2}" y="${H - bottom + 16}" text-anchor="middle">${esc(shortDate(row.date))}</text>
-                <text class="chart-note" x="${x + barW / 2}" y="${H - bottom + 30}" text-anchor="middle">${esc(labelFor(row))}</text>`;
-        }).join('');
-        return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily attendance rate">
-            ${grid}
-            <line class="chart-axis" x1="${left}" x2="${W - right}" y1="${top + plotH}" y2="${top + plotH}"></line>
-            ${bars}
-        </svg>`;
+    function dayChart(rows) {
+        return Portal.rateColumns(rows, {
+            labelFor: row => shortDate(row.date),
+            aria: 'Daily attendance rate',
+            limit: DAYS_SHOWN,
+            emptyTitle: 'No daily marks yet',
+            emptyHint: 'Each day with attendance appears as a bar.',
+        });
     }
 
     function bindFilters() {

@@ -178,7 +178,7 @@ Both write a fresh hash and update the flag. Administrators change their own pas
 | Page | File | Purpose |
 | --- | --- | --- |
 | Sign in | `static/login.html` | Session login, CSRF-aware; takes a username, a student email or a teacher email |
-| Dashboard | `static/index.html` | Role-aware overview: academy stats and today's classes, or a student's own day |
+| Dashboard | `static/index.html` | Role-aware overview: academy stats, today's classes and an attendance-rate chart, or a student's own day with their per-subject attendance |
 | Students | `static/students.html` | Search / filter roster, admit (picture optional), edit, manage the student's sign-in, remove (admin) |
 | Student profile | `static/student-profile.html` | Profile, guardian + contact details, weekly timetable, enrolled subjects, classmates; admins edit the record and the picture here |
 | Teachers | `static/teachers.html` | Faculty directory cards with contact details and pictures; admin adds (picture optional), edits, manages sign-ins, removes |
@@ -258,6 +258,15 @@ daily series and the dated history.
 
 **A late arrival counts as attended** in every rate: `rate = (present + late) / marked`. The charts
 say so underneath, and late marks are drawn in their own colour rather than folded into absent.
+
+**The dashboard reuses the same two builders.** `js/app.js` exports `rateBars` (horizontal percentage
+bars, one per group) and `rateColumns` (vertical daily columns), and both are plain SVG coloured from
+the theme's custom properties, so nothing needs a chart library and the geometry lives in one place.
+The dashboard card draws `summary.classes` for staff — one bar per class and division, with the
+overall rate and date range in the card header — and `me.subjects` for a student, one bar per subject
+they are enrolled in. Because the answers are already scoped on the server, the card inherits that
+scope: an administrator sees the whole academy, a faculty member only their own classes, a student
+only their own record.
 
 Marking copies the class, subject and hour onto the row instead of referencing the timetable, so a
 session that is later edited or deleted leaves the recorded attendance untouched.
@@ -459,7 +468,7 @@ they cannot be connected from this build environment.
 ```
 academy-portal/
 ├── pom.xml
-├── scripts/smoke-test.sh                 end-to-end role + endpoint checks (247 assertions)
+├── scripts/smoke-test.sh                 end-to-end role + endpoint checks (252 assertions)
 └── src/main/
     ├── java/com/academy/portal/
     │   ├── AcademyPortalApplication.java
@@ -473,7 +482,8 @@ academy-portal/
         ├── application.properties
         ├── db/schema.sql, db/data.sql
         └── static/     HTML pages, css/main.css, js/*.js
-                        (attendance.html draws its own SVG charts — no chart library, no build step)
+                        (js/app.js holds the SVG chart bars both the dashboard and
+                         attendance.html draw — no chart library, no build step)
 ```
 
 ## 10. Troubleshooting
