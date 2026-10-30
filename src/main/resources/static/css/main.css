@@ -469,6 +469,61 @@ dl.facts dt:last-of-type, dl.facts dd:last-of-type { border-bottom: 0; }
 .slot:hover { border-left-color: var(--teal); }
 .day-col.empty-day .slots { color: var(--ink-faint); font-size: .84rem; padding: 14px; }
 
+/* One-click booking straight from a day column */
+.day-col > h3 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.day-add {
+    width: 25px; height: 25px; padding: 0; justify-content: center; border-radius: 7px;
+    background: var(--card); border: 1px solid var(--line); color: var(--navy-700);
+    font-size: 1rem; font-weight: 500; line-height: 1;
+}
+.day-add:hover { background: var(--accent-soft); border-color: var(--accent-soft); color: var(--accent-ink); }
+.slot-add {
+    width: 100%; justify-content: center; padding: 12px; font-size: .8rem; font-weight: 550;
+    background: transparent; border: 1px dashed var(--line); color: var(--ink-faint);
+}
+.slot-add:hover { background: var(--card); border-color: var(--accent); color: var(--accent-ink); }
+
+/* ============================================================
+   Week planner
+   ============================================================ */
+.plan-label { font-size: .76rem; font-weight: 650; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+.plan-days { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 18px; }
+.day-pick {
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+    padding: 7px 11px; font-size: .82rem; background: var(--card);
+    border: 1px solid var(--line); border-radius: 8px;
+}
+.day-pick input { accent-color: var(--accent); margin: 0; }
+.day-pick:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); font-weight: 620; }
+.plan-clock { margin-top: 16px; }
+.plan-clock .field input { min-width: 0; }
+.plan-head { display: flex; align-items: center; gap: 9px; margin: 20px 0 10px; }
+.plan-head .plan-label { margin-right: auto; }
+.period-row { display: grid; grid-template-columns: 24px minmax(0, 1.5fr) minmax(0, 1fr) auto; gap: 9px; align-items: center; margin-bottom: 9px; }
+.period-row select {
+    font: inherit; font-size: .87rem; min-width: 0; padding: 8px 10px;
+    border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card); color: var(--ink);
+}
+.period-row select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus-ring); }
+.period-no { font-size: .78rem; color: var(--ink-faint); text-align: center; font-variant-numeric: tabular-nums; }
+.plan-preview {
+    margin-top: 16px; padding: 10px 12px; max-height: 200px; overflow: auto;
+    background: var(--bg-alt); border: 1px solid var(--line); border-radius: 10px;
+}
+.preview-line {
+    display: grid; grid-template-columns: 78px 116px minmax(0, 1fr) minmax(0, 140px);
+    gap: 10px; align-items: center; font-size: .82rem; padding: 6px 0; border-bottom: 1px dashed var(--line);
+}
+.preview-line:last-of-type { border-bottom: 0; }
+.pv-day { font-size: .72rem; font-weight: 650; text-transform: uppercase; letter-spacing: .05em; color: var(--navy-700); }
+.pv-time { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.pv-sub, .pv-who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pv-who { color: var(--ink-soft); }
+.warn-line {
+    margin: 10px 0 0; padding: 8px 10px; font-size: .82rem;
+    background: var(--rose-soft); color: var(--rose-ink); border-radius: 8px;
+}
+
 /* ============================================================
    Modal, toast
    ============================================================ */
@@ -674,6 +729,9 @@ dl.facts code { background: var(--code-bg); padding: 1px 6px; border-radius: 5px
     .topbar, .content { padding-left: 16px; padding-right: 16px; }
     .modal-grid { grid-template-columns: 1fr; }
     .field.span2 { grid-column: auto; }
+    .period-row { grid-template-columns: 1fr 1fr; }
+    .period-row .period-no { display: none; }
+    .preview-line { grid-template-columns: 1fr 1fr; gap: 6px 10px; }
     .legal-card { padding: 26px 22px; }
 }
 

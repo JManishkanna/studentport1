@@ -153,6 +153,15 @@ photo_url_get() { # photo_url_get LABEL RELATIVE_URL EXPECTED_STATUS -> any sign
 
 first_photo_url() { sed -E 's/.*"photoUrl":"([^"]+)".*/\1/' /tmp/portal-resp.json | head -1; }
 
+count_is() { # count_is LABEL EXPECTED COUNT -> for assertions about how many things a call produced
+    local label="$1" want="$2" got="$3"
+    if [ "$got" = "$want" ]; then
+        PASS=$((PASS + 1)); printf '  ok   %-46s %s\n' "$label" "$got"
+    else
+        FAIL=$((FAIL + 1)); printf '  FAIL %-46s got %s, want %s\n' "$label" "$got" "$want"
+    fi
+}
+
 echo "== admin =="
 JAR=$(mktemp)
 [ "$(login "$JAR" admin admin123)" = "302" ] || { echo "admin login failed"; exit 1; }
@@ -302,6 +311,28 @@ SESSION_ID=$(first_id)
 check "session updated" 200 PUT "/api/schedules/$SESSION_ID" "$(echo "$GOOD" | sed 's/"room":"Room 7"/"room":"Room 8"/')"
 check "session deleted" 200 DELETE "/api/schedules/$SESSION_ID"
 
+# Booking a whole week in one call. The seeded timetable stops at 12:30, so 14:00 is free for
+# Thomas Mathew and Farida Khan, and the class name belongs to this run alone.
+WEEK='{"classLevel":"'"$RUN_TAG"' Week","section":"P","room":"Block C - 5","days":[1,3],"firstStart":"14:00:00","periodMinutes":45,"breakMinutes":15,"periodsPerDay":2,"periods":[{"subjectId":1,"teacherId":4},{"subjectId":3,"teacherId":7},{"subjectId":4,"teacherId":4},{"subjectId":5,"teacherId":7}]}'
+check "a week booked in one call" 200 POST /api/schedules/week "$WEEK"
+WEEK_IDS=$(grep -oE '"id":[0-9]+' /tmp/portal-resp.json | grep -oE '[0-9]+')
+count_is "four sessions from one request" 4 "$(echo "$WEEK_IDS" | grep -c .)"
+expect_in "the week is laid on the named class" '"classLevel":"'"$RUN_TAG"' Week"'
+expect_in "the second period starts after the break" '"startTime":"15:00:00"'
+expect_in "the week spreads over both days" '"dayOfWeek":3'
+expect_in "the room is carried to every period" '"room":"Block C - 5"'
+check "the same week booked twice refused" 409 POST /api/schedules/week "$WEEK"
+check "a faculty already teaching refused" 409 POST /api/schedules/week '{"classLevel":"'"$RUN_TAG"' Clash","section":"P","days":[1],"firstStart":"08:10:00","periodMinutes":30,"periodsPerDay":1,"periods":[{"subjectId":2,"teacherId":1}]}'
+expect_in "the plan names the clash it found" 'Double booking'
+check "more periods than the week holds refused" 400 POST /api/schedules/week '{"classLevel":"'"$RUN_TAG"' Fit","section":"P","days":[1],"firstStart":"14:00:00","periodMinutes":45,"periodsPerDay":1,"periods":[{"subjectId":1,"teacherId":4},{"subjectId":3,"teacherId":7}]}'
+check "a week with no weekday refused" 400 POST /api/schedules/week '{"classLevel":"'"$RUN_TAG"' Empty","section":"P","days":[],"firstStart":"14:00:00","periodMinutes":45,"periodsPerDay":1,"periods":[{"subjectId":1,"teacherId":4}]}'
+check "a week naming a ghost subject refused" 404 POST /api/schedules/week '{"classLevel":"'"$RUN_TAG"' Ghost","section":"P","days":[6],"firstStart":"14:00:00","periodMinutes":45,"periodsPerDay":1,"periods":[{"subjectId":999999,"teacherId":4}]}'
+check "the refused week asked for the class" 200 GET '/api/schedules?classLevel='"$RUN_TAG"'%20Ghost'
+expect_out "a rejected plan saved no sessions" '"id"'
+for id in $WEEK_IDS; do check "planned session removed" 200 DELETE "/api/schedules/$id"; done
+check "the planned week read back" 200 GET '/api/schedules?classLevel='"$RUN_TAG"'%20Week'
+expect_out "the planner left nothing behind" '"id"'
+
 TEACHER='{"employeeCode":"'"$RUN_TAG"'T","firstName":"Smoke","lastName":"Faculty","department":"QA","email":"'"$RUN_TAG"'t@academy.edu","phone":"+91 90000 77777","designation":"Guest Faculty","status":"ACTIVE"}'
 check "add teacher" 200 POST /api/teachers "$TEACHER"
 TEACHER_ID=$(first_id)
@@ -371,6 +402,7 @@ check "cannot admit student" 403 POST /api/students "$STUDENT"
 check "cannot edit a student record" 403 PUT /api/students/1 "$STUDENT"
 check "cannot edit administration details" 403 PUT /api/contacts/administration '{"fullName":"Not Allowed","email":"x@y.edu"}'
 check "cannot edit session" 403 PUT "/api/schedules/1" "$GOOD"
+check "cannot book a week" 403 POST /api/schedules/week "$WEEK"
 check "cannot add contact" 403 POST /api/contacts "$CONTACT"
 check "cannot delete student" 403 DELETE "/api/students/$ENROLL_ID"
 check "cannot read a student sign-in" 403 GET /api/students/1/login
@@ -480,6 +512,10 @@ expect_in "shared percentage-bar builder exists" 'function rateBars'
 expect_in "shared daily-column builder exists" 'function rateColumns'
 check "dashboard script is served" 200 GET /js/dashboard.js
 expect_in "dashboard uses the shared bar builder" 'Portal.rateBars('
+check "timetable script is served" 200 GET /js/schedule.js
+expect_in "the planner asks for the whole week at once" 'api/schedules/week'
+expect_in "every day column offers a one-click add" 'data-add-day'
+expect_in "the planner previews the week before booking" 'function layout'
 
 echo
 echo "cleanup"

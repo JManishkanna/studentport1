@@ -183,7 +183,7 @@ Both write a fresh hash and update the flag. Administrators change their own pas
 | Student profile | `static/student-profile.html` | Profile, guardian + contact details, weekly timetable, enrolled subjects, classmates; admins edit the record and the picture here |
 | Teachers | `static/teachers.html` | Faculty directory cards with contact details and pictures; admin adds (picture optional), edits, manages sign-ins, removes |
 | Teacher profile | `static/teacher-profile.html` | Contact info, qualifications, weekly timetable, subjects and classes taught; admins edit the record and the picture here |
-| Timetable | `static/schedule.html` | Week grid with class/section/teacher/subject filters; admin builds sessions |
+| Timetable | `static/schedule.html` | Week grid with class/section/teacher/subject filters; admin plans a whole week in one dialog, adds a single session, or clicks a day to fill its next free hour |
 | Attendance | `static/attendance.html` | ADMIN and TEACHER: rate tiles, attendance-by-class and daily charts, then take or review the sheet for any class on the day; STUDENT: own rate, per-subject and daily charts and the full history |
 | Contacts | `static/contacts.html` | Role-scoped people directory (see below) plus department desks and helplines grouped by category |
 | Certificates | `static/certificates.html` | ADMIN only: tick one or many graduates, preview the navy-and-gold sheet, then download the certificate PDFs |
@@ -222,6 +222,7 @@ from `GET /api/auth/csrf`).
 | `GET` | `/api/schedules?dayOfWeek=&classLevel=&section=&teacherId=&subjectId=` | ADMIN, TEACHER |
 | `GET` | `/api/schedules/class?classLevel=&section=` | any signed-in user |
 | `POST` `PUT` `DELETE` | `/api/schedules/**` | ADMIN |
+| `POST` | `/api/schedules/week` (`{classLevel,section,days,firstStart,periodMinutes,breakMinutes,periodsPerDay,periods}`) | ADMIN |
 | `GET` | `/api/attendance/sessions?date=&classLevel=&section=` | ADMIN, TEACHER (teachers: own timetable only) |
 | `GET` | `/api/attendance/sheet?scheduleId=&date=` | ADMIN, or the TEACHER who owns that session |
 | `POST` | `/api/attendance` (`{scheduleId,date,entries:[{studentId,status}]}`) | ADMIN, or the TEACHER who owns that session |
@@ -233,6 +234,50 @@ from `GET /api/auth/csrf`).
 | `POST` `PUT` `DELETE` | `/api/contacts/**` | ADMIN |
 | `POST` | `/api/certificates` → `application/pdf` | ADMIN |
 | `POST` | `/api/certificates/preview` → the same pages as JSON | ADMIN |
+
+### Timetable
+
+One `class_schedules` row is one recurring session: subject, faculty, class, division, weekday, start,
+end, room and term. `GET /api/schedules` answers the joined rows (subject code and name, faculty name)
+and filters on `dayOfWeek`, `classLevel`, `section`, `teacherId` and `subjectId` — that answer is what
+the week grid is drawn from. A student sees only their own class through `/api/schedules/class`.
+
+**A whole week is one call.** `POST /api/schedules/week` is given the class, the days it meets and the
+clock rhythm of a day, plus the periods in order, and it lays them out itself:
+
+```json
+{"classLevel":"Data Analysis","section":"B","room":"Block B - 101","days":[1,3,5],
+ "firstStart":"08:00:00","periodMinutes":45,"breakMinutes":10,"periodsPerDay":2,
+ "periods":[{"subjectId":9,"teacherId":2},{"subjectId":10,"teacherId":6},
+            {"subjectId":11,"teacherId":2},{"subjectId":12,"teacherId":6}]}
+```
+
+Days are filled in order, the period list runs straight through them, and period *n* of a day starts
+at `firstStart + n x (periodMinutes + breakMinutes)` — so the four periods above land on Monday 08:00
+and 08:55, Wednesday 08:00 and 08:55, and nothing on Friday. The same two rules that guard a single
+session decide the week: a class cannot be in two places at once, and a faculty member cannot teach
+two classes in the same hour. Every generated slot is checked against the whole timetable **and**
+against the other slots of the plan before anything is written, so a plan with one bad hour saves
+nothing and answers `409` naming the offenders, up to three at a time:
+`4 of these sessions do not fit: Monday 14:00: Time clash: ... ; Monday 15:00: Double booking: Priya
+Desai is already teaching Full Stack Java A at 14:00-14:45 on Monday`. More periods than the chosen
+days hold, no weekday at all, a weekday outside 1-7 and an unknown subject or faculty are refused
+first (`400`, `404`). Faculty and students get `403`.
+
+**The dialog shows the week before it is saved.** **Plan a week** opens with Monday to Friday ticked,
+08:00, 45-minute periods, a 10-minute break and two periods a day. Each period is one row — subject
+and faculty — and the faculty box fills itself with whoever already teaches that subject to that class
+as soon as the subject is chosen, so a week of eight rows is usually eight picks. The preview under
+the rows lists exactly the sessions the portal is about to book, and the button counts them
+(**Book 3 session(s)**); if the list no longer fits the ticked days, the preview says so instead of
+dropping the extra periods silently. **Use this class's subjects** reloads the rows from the class's
+current timetable, so re-planning next term starts from this term's. Opening the dialog on a filtered
+timetable inherits that class, division and room.
+
+**A single session is still one click away.** **+ Single session** behaves as it always did, and every
+day column now carries a **+** that opens it with that weekday chosen, the start set to the next
+five-minute mark after that day's last period, the length copied from it, and the class, division and
+room taken from it. A day with nothing on it starts at 08:00 for 45 minutes.
 
 ### Attendance
 
@@ -481,7 +526,7 @@ they cannot be connected from this build environment.
 ```
 academy-portal/
 ├── pom.xml
-├── scripts/smoke-test.sh                 end-to-end role + endpoint checks (254 assertions)
+├── scripts/smoke-test.sh                 end-to-end role + endpoint checks (279 assertions)
 └── src/main/
     ├── java/com/academy/portal/
     │   ├── AcademyPortalApplication.java
@@ -511,6 +556,7 @@ academy-portal/
 | Empty dashboard but app started | `db/data.sql` did not run: check the boot log for `Executing SQL script from class path resource` |
 | Profile picture upload rejected | It must be a PNG, JPEG or WebP under 2 MB — the server checks the bytes, not the file name |
 | Attendance page says no classes | The chosen date is not a weekday the timetable uses (the seed runs Monday–Friday); pick a weekday, or **Clear** the class and section filters |
+| **Book the week** answers `409` | One of the generated hours collides with the timetable — the message names each one and nothing was saved; move the first start, shorten the period, or tick another day so the periods spread out |
 | A smoke test sign-in fails with `401` after browsing | A browser session changed a demo password; reset it as admin with `POST /api/{students\|teachers}/{id}/login/reset` and `{}` |
 | Port 8080 busy | `PORT=9090` (or `SERVER_PORT=9090`), then open `http://localhost:9090` — another app on 8080 answers with its own `401`, which looks like this portal misbehaving |
 

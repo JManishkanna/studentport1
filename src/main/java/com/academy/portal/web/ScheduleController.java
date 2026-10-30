@@ -2,6 +2,7 @@ package com.academy.portal.web;
 
 import com.academy.portal.dto.ScheduleDto;
 import com.academy.portal.dto.ScheduleRow;
+import com.academy.portal.dto.WeekPlanRequest;
 import com.academy.portal.service.ScheduleService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -48,6 +49,13 @@ public class ScheduleController {
     @PreAuthorize("hasRole('ADMIN')")
     public ScheduleDto create(@Valid @RequestBody ScheduleDto dto) {
         return scheduleService.create(dto);
+    }
+
+    /** Lays an ordered list of periods across the chosen weekdays, times included. */
+    @PostMapping("/week")
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<ScheduleDto> planWeek(@Valid @RequestBody WeekPlanRequest request) {
+        return scheduleService.planWeek(request);
     }
 
     @PutMapping("/{id}")

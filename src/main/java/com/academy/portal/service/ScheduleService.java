@@ -3,9 +3,12 @@ package com.academy.portal.service;
 import com.academy.portal.domain.ClassSchedule;
 import com.academy.portal.dto.ScheduleDto;
 import com.academy.portal.dto.ScheduleRow;
+import com.academy.portal.dto.WeekPlanRequest;
 import com.academy.portal.repository.ClassScheduleRepository;
 import com.academy.portal.repository.SubjectRepository;
 import com.academy.portal.repository.TeacherRepository;
+import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
@@ -57,6 +60,68 @@ public class ScheduleService {
         return toDto(scheduleRepository.save(entity));
     }
 
+    /**
+     * Books a whole week in one go. The caller names the class, the days it meets and how long a
+     * period runs; the portal works out every clock time and rejects the plan, without saving
+     * anything, as soon as one of the generated sessions would clash.
+     */
+    @Transactional
+    public List<ScheduleDto> planWeek(WeekPlanRequest request) {
+        List<Integer> days = request.days().stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
+        List<WeekPlanRequest.Period> periods = request.periods().stream()
+                .filter(Objects::nonNull)
+                .toList();
+        if (days.isEmpty() || periods.isEmpty()) {
+            throw new BadRequestException("Choose at least one weekday and at least one period");
+        }
+        int perDay = request.periodsPerDay();
+        if (periods.size() > days.size() * perDay) {
+            throw new BadRequestException("%d periods do not fit in %d day(s) at %d a day - add a day "
+                    .formatted(periods.size(), days.size(), perDay) + "or spread them thinner");
+        }
+
+        int length = request.periodMinutes();
+        int gap = request.breakMinutes() == null ? 10 : request.breakMinutes();
+        String term = request.term() == null || request.term().isBlank() ? "2026-ODD" : request.term().trim();
+        List<ClassSchedule> plan = new ArrayList<>();
+        int next = 0;
+        for (Integer day : days) {
+            for (int slot = 0; slot < perDay && next < periods.size(); slot++) {
+                LocalTime start = request.firstStart().plusMinutes((long) slot * (length + gap));
+                WeekPlanRequest.Period period = periods.get(next++);
+                ClassSchedule entity = new ClassSchedule();
+                apply(entity, new ScheduleDto(null, period.subjectId(), period.teacherId(),
+                        request.classLevel(), request.section(), request.room(), day,
+                        start, start.plusMinutes(length), term));
+                plan.add(entity);
+            }
+        }
+
+        List<ClassSchedule> booked = new ArrayList<>(scheduleRepository.findAll());
+        List<String> clashes = new ArrayList<>();
+        for (ClassSchedule candidate : plan) {
+            String clash = clashMessage(candidate, booked);
+            if (clash != null) {
+                clashes.add("%s %s: %s".formatted(dayName(candidate.getDayOfWeek()),
+                        candidate.getStartTime(), clash));
+                continue;
+            }
+            booked.add(candidate);
+        }
+        if (!clashes.isEmpty()) {
+            throw new ConflictException(clashes.size() == 1
+                    ? clashes.get(0)
+                    : "%d of these sessions do not fit: %s".formatted(clashes.size(),
+                            String.join("; ", clashes.subList(0, Math.min(3, clashes.size())))));
+        }
+
+        return scheduleRepository.saveAll(plan).stream().map(this::toDto).toList();
+    }
+
     @Transactional
     public ScheduleDto update(Long id, ScheduleDto dto) {
         ClassSchedule entity = load(id);
@@ -96,10 +161,18 @@ public class ScheduleService {
         if (!candidate.getStartTime().isBefore(candidate.getEndTime())) {
             throw new BadRequestException("Start time must be earlier than end time");
         }
-        for (ClassSchedule other : scheduleRepository.findAll()) {
-            if (selfId != null && selfId.equals(other.getId())) {
-                continue;
-            }
+        List<ClassSchedule> others = scheduleRepository.findAll().stream()
+                .filter(other -> selfId == null || !selfId.equals(other.getId()))
+                .toList();
+        String clash = clashMessage(candidate, others);
+        if (clash != null) {
+            throw new ConflictException(clash);
+        }
+    }
+
+    /** The first reason this session cannot be booked against these rows, or null when it fits. */
+    private String clashMessage(ClassSchedule candidate, List<ClassSchedule> others) {
+        for (ClassSchedule other : others) {
             if (!Objects.equals(other.getDayOfWeek(), candidate.getDayOfWeek())) {
                 continue;
             }
@@ -109,19 +182,20 @@ public class ScheduleService {
                 continue;
             }
             if (sameClass(other, candidate)) {
-                throw new ConflictException("Time clash: %s %s already has a session at %s-%s on %s"
+                return "Time clash: %s %s already has a session at %s-%s on %s"
                         .formatted(other.getClassLevel(), other.getSection(), other.getStartTime(),
-                                other.getEndTime(), dayName(other.getDayOfWeek())));
+                                other.getEndTime(), dayName(other.getDayOfWeek()));
             }
             if (Objects.equals(other.getTeacherId(), candidate.getTeacherId())) {
                 String teacher = teacherRepository.findById(candidate.getTeacherId())
                         .map(t -> t.getFirstName() + " " + t.getLastName())
                         .orElse("teacher #" + candidate.getTeacherId());
-                throw new ConflictException("Double booking: %s is already teaching %s %s at %s-%s on %s"
+                return "Double booking: %s is already teaching %s %s at %s-%s on %s"
                         .formatted(teacher, other.getClassLevel(), other.getSection(),
-                                other.getStartTime(), other.getEndTime(), dayName(other.getDayOfWeek())));
+                                other.getStartTime(), other.getEndTime(), dayName(other.getDayOfWeek()));
             }
         }
+        return null;
     }
 
     private boolean sameClass(ClassSchedule a, ClassSchedule b) {
