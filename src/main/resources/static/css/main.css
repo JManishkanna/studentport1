@@ -711,6 +711,84 @@ dl.facts code { background: var(--code-bg); padding: 1px 6px; border-radius: 5px
 .cert-sheet .serial { font-size: .68rem; color: #54637e; }
 
 /* ============================================================
+   Alerts, grades and teacher notes
+   ============================================================ */
+.alerts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.alert {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 10px 13px;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--ink-faint);
+    border-radius: var(--radius-sm);
+    background: var(--bg-alt);
+    color: var(--ink);
+}
+a.alert:hover { border-color: var(--accent); border-left-color: var(--accent); }
+.alert.danger { border-left-color: var(--rose); background: var(--rose-soft); color: var(--rose-ink); }
+.alert.warn { border-left-color: var(--amber); background: var(--amber-soft); color: var(--amber-ink); }
+.alert.info { border-left-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+.alert-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.alert-title { font-size: .88rem; font-weight: 660; }
+.alert-detail { font-size: .82rem; opacity: .92; }
+.alert-tag {
+    flex: 0 0 auto; padding-top: 1px;
+    font-size: .66rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+    opacity: .8; white-space: nowrap;
+}
+
+.badge.kind-assignment { background: var(--accent-soft); color: var(--accent-ink); }
+.badge.kind-quiz { background: var(--teal-soft); color: var(--teal-ink); }
+.badge.kind-exam { background: var(--navy-100); color: var(--navy-700); }
+.delta { font-variant-numeric: tabular-nums; font-weight: 620; font-size: .84rem; }
+.delta.up { color: var(--teal-ink); }
+.delta.down { color: var(--rose-ink); }
+.delta.flat { color: var(--ink-faint); }
+
+.chart .chart-line { fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; }
+.chart .chart-dot { fill: var(--card); stroke: var(--accent); stroke-width: 2; }
+.chart .chart-threshold { stroke: var(--amber); stroke-width: 1.4; stroke-dasharray: 5 4; }
+.sparkline { width: 92px; height: 28px; display: block; overflow: visible; }
+.sparkline polyline { fill: none; stroke: var(--accent); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+.sparkline circle { fill: var(--accent); }
+
+/* Marking sheet: one row per student, marks then remark */
+.grade-row {
+    display: grid; grid-template-columns: minmax(0, 1fr) 104px minmax(0, 1.3fr);
+    align-items: center; gap: 12px; padding: 8px 14px;
+    border-bottom: 1px solid var(--line-soft);
+}
+.grade-row:last-child { border-bottom: 0; }
+.grade-row.head {
+    font-size: .74rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--ink-faint); background: var(--head-bg);
+}
+.grade-input {
+    font: inherit; font-size: .85rem; width: 100%; min-width: 0;
+    padding: 7px 9px; border: 1px solid var(--line); border-radius: 7px;
+    background: var(--card); color: var(--ink);
+}
+.grade-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus-ring); }
+
+/* Notes left on a student record */
+.notes { display: flex; flex-direction: column; gap: 10px; }
+.note { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; background: var(--bg-alt); }
+.note-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.note-who { font-size: .88rem; font-weight: 660; color: var(--ink); }
+.note-meta { font-size: .78rem; color: var(--ink-soft); }
+.note-body { margin: 7px 0 0; font-size: .88rem; color: var(--ink); white-space: pre-wrap; }
+.note .btn { margin-left: auto; }
+.note-form { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+
+/* What is coming up next */
+.up-list { list-style: none; margin: 0; padding: 0; }
+.up-item { display: flex; align-items: baseline; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
+.up-item:last-child { border-bottom: 0; }
+.up-when { flex: 0 0 96px; font-size: .78rem; font-weight: 650; color: var(--ink-soft); }
+.up-main { flex: 1 1 auto; min-width: 0; }
+.up-side { flex: 0 0 auto; font-size: .78rem; color: var(--ink-faint); white-space: nowrap; }
+.up-due { font-size: .74rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--amber-ink); }
+
+/* ============================================================
    Responsive
    ============================================================ */
 @media (max-width: 1080px) {
@@ -733,6 +811,10 @@ dl.facts code { background: var(--code-bg); padding: 1px 6px; border-radius: 5px
     .period-row .period-no { display: none; }
     .preview-line { grid-template-columns: 1fr 1fr; gap: 6px 10px; }
     .legal-card { padding: 26px 22px; }
+    .grade-row { grid-template-columns: minmax(0, 1fr) 96px; }
+    .grade-row .grade-remark, .grade-row.head > :last-child { grid-column: 1 / -1; }
+    .up-item { flex-wrap: wrap; }
+    .up-side { flex-basis: 100%; padding-left: 108px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,12 +1,16 @@
 (() => {
-    const { esc, get, post, avatar, formatDate, formatTime, toast } = Portal;
+    const { esc, get, post, avatar, formatDate, formatTime, toast, queryParam } = Portal;
     const content = document.getElementById('content');
     const STATUSES = ['PRESENT', 'LATE', 'ABSENT'];
     const DAYS_SHOWN = 10;
+    const LOW_RATE = 75;
+
+    const requested = queryParam('date');
+    const isIsoDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '');
 
     const state = {
         me: null,
-        date: isoToday(),
+        date: isIsoDate(requested) ? requested : isoToday(),
         from: isoDaysAgo(29),
         to: isoToday(),
         classLevel: '',
@@ -15,6 +19,7 @@
         sectionOptions: [],
         sessions: [],
         summary: null,
+        atRisk: null,
     };
 
     function isoToday() {
@@ -77,12 +82,14 @@
     /* ---------------------------------------------------------------- faculty and admin */
 
     async function loadStaff() {
-        const [summary, sessions] = await Promise.all([
+        const [summary, sessions, atRisk] = await Promise.all([
             get(`api/attendance/summary?${summaryQuery()}`),
             get(`api/attendance/sessions?${sessionQuery()}`),
+            get(`api/attendance/at-risk?${summaryQuery()}`),
         ]);
         state.summary = summary;
         state.sessions = sessions;
+        state.atRisk = atRisk;
 
         state.classOptions = [...new Set(summary.classes.map(row => row.classLevel))].sort();
         state.sectionOptions = [...new Set(summary.classes.map(row => row.section).filter(Boolean))].sort();
@@ -147,10 +154,52 @@
                 </div>
             </section>
 
-            <section class="card" id="sessions"></section>`;
+            <section class="card" id="sessions"></section>
+
+            ${atRiskCard()}`;
 
         bindFilters();
         renderSessions();
+    }
+
+    function atRiskCard() {
+        const atRisk = state.atRisk;
+        if (!atRisk || !atRisk.students.length) return '';
+        return `
+            <section class="card">
+                <div class="card-head">
+                    <h2>Students below ${Number(atRisk.threshold).toFixed(0)}%</h2>
+                    <span class="hint">${atRisk.students.length} student(s) · ${esc(formatDate(atRisk.from))} to ${esc(formatDate(atRisk.to))}</span>
+                </div>
+                <div class="card-body tight">
+                    <table>
+                        <thead><tr><th>Student</th><th>Class</th><th class="num">Rate</th><th class="num">Missed</th><th class="num">To recover</th><th>Weakest subject</th></tr></thead>
+                        <tbody>
+                            ${atRisk.students.map(row => `
+                                <tr class="clickable" data-open="${row.studentId}">
+                                    <td>
+                                        <div class="person">
+                                            ${avatar(row.photoUrl, row.fullName, 'avatar-xs')}
+                                            <div>
+                                                <div class="cell-strong">${esc(row.fullName)}</div>
+                                                <div class="cell-sub">${esc(row.rollNumber)}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td><span class="badge">${esc(row.classLevel)}${row.section ? ' · ' + esc(row.section) : ''}</span></td>
+                                    <td class="num"><span class="delta down">${Number(row.rate).toFixed(1)}%</span></td>
+                                    <td class="num">${row.absent} of ${row.total}</td>
+                                    <td class="num">${row.needed} class(es)</td>
+                                    <td>
+                                        <div class="cell-strong">${esc(row.weakestSubject || '-')}</div>
+                                        <div class="cell-sub">${row.weakestRate === null || row.weakestRate === undefined ? '' : `${Number(row.weakestRate).toFixed(1)}%`}</div>
+                                    </td>
+                                </tr>`).join('')}
+                        </tbody>
+                    </table>
+                    <p class="chart-note-line">"To recover" is how many classes in a row the student must attend to reach the threshold again. Select a row to open their profile.</p>
+                </div>
+            </section>`;
     }
 
     function statTiles(summary) {
@@ -212,12 +261,14 @@
 
     async function refreshAll() {
         try {
-            const [summary, sessions] = await Promise.all([
+            const [summary, sessions, atRisk] = await Promise.all([
                 get(`api/attendance/summary?${summaryQuery()}`),
                 get(`api/attendance/sessions?${sessionQuery()}`),
+                get(`api/attendance/at-risk?${summaryQuery()}`),
             ]);
             state.summary = summary;
             state.sessions = sessions;
+            state.atRisk = atRisk;
             renderStaff();
         } catch (error) {
             toast(error.message, 'err');
@@ -373,6 +424,7 @@
         });
 
         content.innerHTML = `
+            ${lowAttendanceBanner(data)}
             ${statTiles(data)}
             <section class="grid two">
                 <div class="card">
@@ -407,5 +459,25 @@
             </section>`;
     }
 
+    /** Only students with marks get a warning; a subject with no records is never flagged. */
+    function lowAttendanceBanner(data) {
+        if (!data.total || Number(data.rate) >= LOW_RATE) return '';
+        const weak = data.subjects.filter(row => row.total && Number(row.rate) < LOW_RATE);
+        const needed = Math.max(0, Math.ceil(3 * data.total - 4 * (data.present + data.late)));
+        return `
+            <div class="banner warn">
+                Your attendance is ${Number(data.rate).toFixed(1)}%, under the ${LOW_RATE}% the academy watches.
+                ${weak.length ? `Below the line in ${weak.map(row => `${esc(row.subjectName)} (${Number(row.rate).toFixed(1)}%)`).join(', ')}.` : ''}
+                Attending the next ${needed} class${needed === 1 ? '' : 'es'} in a row brings you back to ${LOW_RATE}%.
+            </div>`;
+    }
+
     load().catch(error => { content.innerHTML = `<div class="banner err">${esc(error.message)}</div>`; });
+
+    content.addEventListener('click', event => {
+        const row = event.target.closest('tr[data-open]');
+        if (row) {
+            window.location.href = `student-profile.html?id=${row.dataset.open}`;
+        }
+    });
 })();

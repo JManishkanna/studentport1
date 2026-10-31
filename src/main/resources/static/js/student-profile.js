@@ -22,8 +22,9 @@
             ? { schedule: 'api/students/me/schedule', subjects: 'api/students/me/subjects', classmates: 'api/students/me/classmates' }
             : { schedule: `api/students/${student.id}/schedule`, subjects: `api/students/${student.id}/subjects`, classmates: `api/students/${student.id}/classmates` };
 
-        const [schedule, subjects, classmates] = await Promise.all([
+        const [schedule, subjects, classmates, progress, comments] = await Promise.all([
             get(scoped.schedule), get(scoped.subjects), get(scoped.classmates),
+            quietProgress(asSelf, student.id), quietComments(asSelf, student.id),
         ]);
 
         const byId = !asSelf;
@@ -34,10 +35,29 @@
             actions: `<a class="btn btn-ghost" href="${byId ? 'students.html' : 'index.html'}">${byId ? 'Back to roster' : 'Dashboard'}</a>`,
         });
 
-        render(student, schedule, subjects, classmates, me, asSelf);
+        render(student, schedule, subjects, classmates, me, asSelf, progress, comments);
     }
 
-    function render(student, schedule, subjects, classmates, me, asSelf) {
+    /** Markers and notes belong to the class teachers, so a faculty member outside this division sees nothing rather than an error. */
+    async function quietProgress(asSelf, studentId) {
+        try {
+            return await get(asSelf ? 'api/progress/me' : `api/students/${studentId}/progress`);
+        } catch (error) {
+            if (error.status === 403) return null;
+            throw error;
+        }
+    }
+
+    async function quietComments(asSelf, studentId) {
+        try {
+            return await get(asSelf ? 'api/students/me/comments' : `api/students/${studentId}/comments`);
+        } catch (error) {
+            if (error.status === 403) return null;
+            throw error;
+        }
+    }
+
+    function render(student, schedule, subjects, classmates, me, asSelf, progress, comments) {
         const days = [1, 2, 3, 4, 5, 6];
         const yearsOld = age(student.dateOfBirth);
         const canAdmin = me.role === 'ADMIN';
@@ -165,7 +185,10 @@
                         </table>
                     </div>
                 </div>
-            </section>`;
+            </section>
+
+            ${gradesCard(progress, asSelf, student)}
+            ${notesCard(comments, student, me, asSelf, subjects)}`;
 
         const edit = document.getElementById('edit');
         if (edit) edit.addEventListener('click', () => openEdit(student));
@@ -188,6 +211,146 @@
         content.querySelectorAll('[data-open]').forEach(row => row.addEventListener('click', async () => {
             window.location.href = `student-profile.html?id=${row.dataset.open}`;
         }));
+
+        const addNote = document.getElementById('add-note');
+        if (addNote) addNote.addEventListener('click', () => openNote(student, subjects));
+
+        content.querySelectorAll('[data-del-note]').forEach(button => button.addEventListener('click', async () => {
+            const ok = await confirmDialog({
+                title: 'Delete this note?',
+                message: 'It disappears from the student record and from the student’s own view.',
+                confirmLabel: 'Delete',
+            });
+            if (!ok) return;
+            try {
+                await del(`api/comments/${button.dataset.delNote}`);
+                toast('Note removed');
+                await reload();
+            } catch (error) {
+                toast(error.message, 'err');
+            }
+        }));
+    }
+
+    /** Marks per subject, weighted by the marks each assessment is out of. */
+    function gradesCard(progress, asSelf, student) {
+        const link = asSelf ? '<a class="btn btn-ghost btn-sm" href="progress.html">Full progress</a>' : '';
+        if (!progress) {
+            return `
+                <section class="card">
+                    <div class="card-head"><h2>Grades by subject</h2>${link}</div>
+                    <div class="card-body">
+                        ${Portal.emptyState('Marks are not visible to you', `Only ${esc(student.firstName)} and the faculty who teach this class can see the marks.`)}
+                    </div>
+                </section>`;
+        }
+        const rows = progress.subjects.map(subject => `
+            <tr>
+                <td>
+                    <div class="cell-strong">${esc(subject.subjectName)}</div>
+                    <div class="cell-sub">${esc(subject.subjectCode)} · ${esc(subject.teacherName || 'unassigned')}</div>
+                </td>
+                <td class="num">
+                    <div class="cell-strong">${score(subject.percent)}</div>
+                    <div class="cell-sub">${subject.graded} marked${subject.pending ? `, ${subject.pending} due` : ''}</div>
+                </td>
+                <td class="num">
+                    ${subject.change === null || subject.change === undefined
+                ? '<span class="cell-sub">first score</span>'
+                : `<span class="delta ${subject.change > 0 ? 'up' : subject.change < 0 ? 'down' : 'flat'}">${subject.change > 0 ? '+' : ''}${Number(subject.change).toFixed(1)}</span>`}
+                </td>
+                <td>${Portal.sparkline(subject.points.filter(point => point.percent !== null).map(point => point.percent), { aria: `Score trend for ${subject.subjectName}` })}</td>
+                <td class="num">
+                    ${subject.attendanceTotal
+                ? `<span class="delta ${subject.lowAttendance ? 'down' : 'flat'}">${Number(subject.attendanceRate).toFixed(1)}%</span>`
+                : '<span class="cell-sub">no marks</span>'}
+                </td>
+            </tr>`).join('');
+        return `
+            <section class="card">
+                <div class="card-head">
+                    <h2>Grades by subject</h2>
+                    <span class="hint">${progress.overallPercent === null
+                ? 'nothing graded yet'
+                : `weighted ${Number(progress.overallPercent).toFixed(1)}% overall`}</span>
+                    ${link}
+                </div>
+                <div class="card-body tight">
+                    <table>
+                        <thead><tr><th>Subject</th><th class="num">Weighted</th><th class="num">Last change</th><th>Trend</th><th class="num">Attendance</th></tr></thead>
+                        <tbody>${rows || `<tr><td colspan="5">${Portal.emptyState('No subjects on this record yet', '')}</td></tr>`}</tbody>
+                    </table>
+                    <p class="chart-note-line">Weighted means each assessment counts for the share of marks it is out of. Attendance covers the last 30 days; under ${Number(progress.threshold).toFixed(0)}% is flagged.</p>
+                </div>
+            </section>`;
+    }
+
+    function score(value) {
+        return value === null || value === undefined ? '—' : `${Number(value).toFixed(1)}%`;
+    }
+
+    /** Notes left by faculty. The student reads their own, admins and the class teachers read and write them. */
+    function notesCard(comments, student, me, asSelf, subjects) {
+        const canWrite = !asSelf && (me.role === 'ADMIN' || me.role === 'TEACHER');
+        const button = canWrite ? '<button class="btn btn-ghost btn-sm" id="add-note">+ Add note</button>' : '';
+        if (!comments) {
+            return `
+                <section class="card">
+                    <div class="card-head"><h2>Teacher notes</h2>${button}</div>
+                    <div class="card-body">
+                        ${Portal.emptyState('Notes are not visible to you', `Only ${esc(student.firstName)} and the faculty who teach this class can read them.`)}
+                    </div>
+                </section>`;
+        }
+        return `
+            <section class="card">
+                <div class="card-head">
+                    <h2>Teacher notes</h2>
+                    <span class="hint">${comments.length} note(s)</span>
+                    ${button}
+                </div>
+                <div class="card-body">
+                    <div class="notes">
+                        ${comments.map(note => `
+                            <article class="note">
+                                <div class="note-head">
+                                    <span class="note-who">${esc(note.authorName)}</span>
+                                    <span class="badge role-${esc(note.authorRole)}">${esc(Portal.label(note.authorRole))}</span>
+                                    ${note.subjectName ? `<span class="badge">${esc(note.subjectCode || '')} ${esc(note.subjectName)}</span>` : '<span class="badge">General</span>'}
+                                    <span class="note-meta">${formatDate(note.createdAt)}</span>
+                                    ${note.canDelete ? `<button class="btn btn-danger btn-sm" data-del-note="${note.id}">Delete</button>` : ''}
+                                </div>
+                                <p class="note-body">${esc(note.body)}</p>
+                            </article>`).join('') || Portal.emptyState('No notes on this record', canWrite ? 'Use Add note to leave feedback the student and the office can read.' : '')}
+                    </div>
+                </div>
+            </section>`;
+    }
+
+    async function openNote(student, subjects) {
+        await recordForm({
+            title: `Note for ${student.firstName} ${student.lastName}`,
+            subtitle: 'The student and the office see this on the profile.',
+            fields: [
+                {
+                    name: 'subjectId',
+                    label: 'Subject',
+                    type: 'select',
+                    emptyLabel: 'General (not about one subject)',
+                    options: subjects.map(s => ({ value: String(s.subjectId), label: `${s.code} · ${s.name}` })),
+                },
+                { name: 'body', label: 'Note', type: 'textarea', required: true, rows: 4, span: 'full' },
+            ],
+            submitLabel: 'Save note',
+            save: async (values) => {
+                await post(`api/students/${student.id}/comments`, {
+                    subjectId: values.subjectId ? Number(values.subjectId) : null,
+                    body: values.body,
+                });
+                toast('Note added');
+                await reload();
+            },
+        });
     }
 
     async function reload() {

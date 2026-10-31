@@ -295,6 +295,77 @@ expect_in "summary breaks down by day" '"days"'
 expect_in "summary keeps late apart" '"late"'
 check "summary range too wide refused" 400 GET '/api/attendance/summary?from=2020-01-01&to=2026-10-27'
 check "summary with the dates swapped refused" 400 GET '/api/attendance/summary?from=2026-10-27&to=2026-10-12'
+check "at-risk students listed" 200 GET /api/attendance/at-risk
+expect_in "the weakest tracker is named" '"rollNumber":"ACAD-1203"'
+expect_in "at-risk says how many classes to climb" '"needed"'
+expect_in "at-risk names the weakest subject" '"weakestSubject"'
+check "at-risk filtered to one division" 200 GET '/api/attendance/at-risk?classLevel=Full%20Stack%20Python&section=B'
+expect_out "the filter drops other divisions" '"rollNumber":"ACAD-1101"'
+check "at-risk on a range with no marks" 200 GET '/api/attendance/at-risk?from=2026-10-01&to=2026-10-05'
+expect_out "a quiet range raises nobody" '"rollNumber"'
+
+# Deadlines and marks. Subject 1 (Java Core) meets Full Stack Java A, where Aarav Menon studies,
+# and subject 9 (Applied Statistics) meets Data Analysis A - another faculty's class.
+ASSESSMENT='{"subjectId":1,"classLevel":"Full Stack Java","section":"A","title":"'"$RUN_TAG"' smoke submission","kind":"ASSIGNMENT","dueDate":"2026-11-05","maxMarks":20,"description":"One endpoint and its test."}'
+check "deadline created" 200 POST /api/assessments "$ASSESSMENT"
+ASSESSMENT_ID=$(first_id)
+expect_in "the deadline carries the subject" '"subjectCode":"JAVC"'
+expect_in "the deadline carries the class" '"classLevel":"Full Stack Java"'
+expect_in "a fresh deadline is unmarked" '"gradedCount":0'
+check "a repeated title refused" 409 POST /api/assessments "$ASSESSMENT"
+check "an unknown type refused" 400 POST /api/assessments '{"subjectId":1,"classLevel":"Full Stack Java","section":"A","title":"'"$RUN_TAG"' odd type","kind":"HOMEWORK","dueDate":"2026-11-05","maxMarks":20}'
+check "a subject off the timetable refused" 400 POST /api/assessments '{"subjectId":5,"classLevel":"Full Stack Java","section":"A","title":"'"$RUN_TAG"' wrong subject","kind":"QUIZ","dueDate":"2026-11-05","maxMarks":10}'
+check "zero maximum refused" 400 POST /api/assessments '{"subjectId":1,"classLevel":"Full Stack Java","section":"A","title":"'"$RUN_TAG"' zero maximum","kind":"QUIZ","dueDate":"2026-11-05","maxMarks":0}'
+check "a deadline with no title refused" 400 POST /api/assessments '{"subjectId":1,"classLevel":"Full Stack Java","section":"A","title":"  ","kind":"EXAM","dueDate":"2026-11-05","maxMarks":10}'
+OTHER_ASSESSMENT='{"subjectId":9,"classLevel":"Data Analysis","section":"A","title":"'"$RUN_TAG"' statistics quiz","kind":"QUIZ","dueDate":"2026-11-04","maxMarks":10}'
+check "a second deadline created" 200 POST /api/assessments "$OTHER_ASSESSMENT"
+OTHER_ASSESSMENT_ID=$(first_id)
+check "deadline list readable" 200 GET /api/assessments
+expect_in "the list counts the roll" '"rosterCount"'
+expect_in "the list reports the average" '"averagePercent"'
+expect_in "staff may edit the deadline" '"canEdit":true'
+check "deadline list filtered to one division" 200 GET '/api/assessments?classLevel=Full%20Stack%20Java&section=A'
+expect_out "the filter drops other classes" '"classLevel":"Data Analysis"'
+check "grade sheet for the class" 200 GET "/api/assessments/$ASSESSMENT_ID/grades"
+expect_in "the sheet hands over the roll" '"rollNumber":"ACAD-1101"'
+expect_in "the sheet offers a picture per student" '"photoUrl":'
+check "marks saved" 200 PUT "/api/assessments/$ASSESSMENT_ID/grades" '{"entries":[{"studentId":1,"marks":18.5,"remark":"Clean design"}]}'
+expect_in "the mark reads back" '"marks":18.5'
+expect_in "the remark reads back" '"remark":"Clean design"'
+check "marks above the maximum refused" 400 PUT "/api/assessments/$ASSESSMENT_ID/grades" '{"entries":[{"studentId":1,"marks":21}]}'
+check "negative marks refused" 400 PUT "/api/assessments/$ASSESSMENT_ID/grades" '{"entries":[{"studentId":1,"marks":-1}]}'
+check "a third decimal refused" 400 PUT "/api/assessments/$ASSESSMENT_ID/grades" '{"entries":[{"studentId":1,"marks":10.005}]}'
+check "a student outside the class refused" 400 PUT "/api/assessments/$ASSESSMENT_ID/grades" '{"entries":[{"studentId":7,"marks":10}]}'
+check "the same roll sent twice refused" 400 PUT "/api/assessments/$ASSESSMENT_ID/grades" '{"entries":[{"studentId":1,"marks":10},{"studentId":1,"marks":12}]}'
+check "an empty mark sheet refused" 400 PUT "/api/assessments/$ASSESSMENT_ID/grades" '{"entries":[]}'
+check "a mark cleared again" 200 PUT "/api/assessments/$ASSESSMENT_ID/grades" '{"entries":[{"studentId":1,"marks":null}]}'
+expect_in "clearing leaves the row unmarked" '"marks":null'
+check "marks saved back" 200 PUT "/api/assessments/$ASSESSMENT_ID/grades" '{"entries":[{"studentId":1,"marks":18.5,"remark":"Clean design"}]}'
+check "progress for a student" 200 GET /api/students/1/progress
+expect_in "progress gives the weighted score" '"overallPercent"'
+expect_in "progress breaks down by subject" '"subjectCode":"JAVC"'
+expect_in "progress keeps each mark in order" '"points"'
+expect_in "progress tracks attendance beside marks" '"attendanceRate"'
+expect_in "progress names the threshold" '"threshold"'
+check "alerts for staff" 200 GET /api/alerts
+expect_in "an alert is raised for the academy" '"level":"danger"'
+expect_in "alerts carry a category" '"kind"'
+expect_in "alerts point at a page" '"link"'
+check "upcoming classes and deadlines" 200 GET '/api/upcoming?days=14'
+expect_in "upcoming lists timetable classes" '"classes"'
+expect_in "upcoming lists deadlines" '"assessments"'
+expect_in "upcoming counts the days left" '"daysLeft"'
+check "a note left on a student" 200 POST /api/students/1/comments '{"subjectId":1,"body":"Strong with REST, keep the test coverage up."}'
+ADMIN_COMMENT_ID=$(first_id)
+expect_in "the note keeps its author" '"authorName"'
+expect_in "the note names the subject" '"subjectName":"Java Core and OOP"'
+check "notes readable by staff" 200 GET /api/students/1/comments
+check "an empty note refused" 400 POST /api/students/1/comments '{"subjectId":1,"body":"   "}'
+check "a note on a subject outside the class refused" 400 POST /api/students/1/comments '{"subjectId":6,"body":"Not taught in this class"}'
+check "the deadline maximum lowered" 200 PUT "/api/assessments/$ASSESSMENT_ID" '{"subjectId":1,"classLevel":"Full Stack Java","section":"A","title":"'"$RUN_TAG"' smoke submission","kind":"ASSIGNMENT","dueDate":"2026-11-05","maxMarks":19}'
+check "a maximum below a mark refused" 400 PUT "/api/assessments/$ASSESSMENT_ID" '{"subjectId":1,"classLevel":"Full Stack Java","section":"A","title":"'"$RUN_TAG"' smoke submission","kind":"ASSIGNMENT","dueDate":"2026-11-05","maxMarks":18}'
+check "the class moved after marking refused" 400 PUT "/api/assessments/$ASSESSMENT_ID" '{"subjectId":1,"classLevel":"Full Stack Java","section":"B","title":"'"$RUN_TAG"' smoke submission","kind":"ASSIGNMENT","dueDate":"2026-11-05","maxMarks":20}'
+check "a ghost deadline 404" 404 GET /api/assessments/999999/grades
 
 check "missing student 404" 404 GET /api/students/999999
 check "invalid payload 400" 400 POST /api/students '{"rollNumber":"","firstName":"","email":"nope","classLevel":"","status":"WEIRD"}'
@@ -431,6 +502,40 @@ expect_in "summary covers a class he teaches" '"classLevel":"Full Stack Java"'
 expect_out "summary is cut to his classes" '"classLevel":"Full Stack Python"'
 check "teacher cannot use the student view" 403 GET /api/attendance/me
 
+# Suresh Babu teaches Java Core and Spring Boot in Full Stack Java A and B, and nothing else,
+# so the work lists, the marks, the alerts and the notes must all stop at his own classes.
+check "teacher reads the at-risk list" 200 GET /api/attendance/at-risk
+expect_out "at-risk is cut to his classes" '"rollNumber":"ACAD-1203"'
+check "teacher lists own deadlines" 200 GET /api/assessments
+expect_in "teacher reaches Java Core" '"subjectCode":"JAVC"'
+expect_out "a subject he does not teach is absent" '"subjectCode":"HNBT"'
+expect_out "another programme is absent" '"classLevel":"Data Analysis"'
+check "teacher sets work for own class" 200 POST /api/assessments '{"subjectId":1,"classLevel":"Full Stack Java","section":"B","title":"'"$RUN_TAG"' faculty quiz","kind":"QUIZ","dueDate":"2026-11-06","maxMarks":10}'
+TEACHER_ASSESSMENT_ID=$(first_id)
+expect_in "the deadline names the faculty" '"teacherName":"Suresh Babu"'
+check "teacher cannot set work for another faculty's class" 403 POST /api/assessments "$OTHER_ASSESSMENT"
+check "teacher opens own grade sheet" 200 GET "/api/assessments/$ASSESSMENT_ID/grades"
+check "teacher marks own class" 200 PUT "/api/assessments/$ASSESSMENT_ID/grades" '{"entries":[{"studentId":1,"marks":19,"remark":"Well tested"}]}'
+expect_in "the remark is stored" '"remark":"Well tested"'
+check "teacher cannot mark another faculty's class" 403 PUT "/api/assessments/$OTHER_ASSESSMENT_ID/grades" '{"entries":[{"studentId":9,"marks":8}]}'
+check "teacher cannot edit another faculty's deadline" 403 PUT "/api/assessments/$OTHER_ASSESSMENT_ID" "$OTHER_ASSESSMENT"
+check "teacher cannot delete another faculty's deadline" 403 DELETE "/api/assessments/$OTHER_ASSESSMENT_ID"
+check "teacher deletes own deadline" 200 DELETE "/api/assessments/$TEACHER_ASSESSMENT_ID"
+check "teacher reads a student he teaches" 200 GET /api/students/1/progress
+expect_in "the mark he gave is in the progress" '"marks":19'
+check "teacher cannot read a student outside his classes" 403 GET /api/students/7/progress
+check "teacher reads own alerts" 200 GET /api/alerts
+expect_in "alerts name the type" '"kind"'
+check "teacher reads upcoming work" 200 GET '/api/upcoming?days=14'
+expect_in "upcoming holds his timetable classes" '"classLevel":"Full Stack Java"'
+expect_out "upcoming drops other programmes" '"classLevel":"UI/UX"'
+check "teacher notes a student he teaches" 200 POST /api/students/1/comments '{"subjectId":1,"body":"Present the endpoint to the batch on Monday."}'
+TEACHER_COMMENT_ID=$(first_id)
+check "teacher cannot note a student outside his classes" 403 POST /api/students/7/comments '{"body":"Out of reach"}'
+check "teacher cannot tag a subject he does not teach" 403 POST /api/students/1/comments '{"subjectId":3,"body":"Not my subject"}'
+check "teacher deletes his own note" 200 DELETE "/api/comments/$TEACHER_COMMENT_ID"
+check "teacher cannot delete the office note" 403 DELETE "/api/comments/$ADMIN_COMMENT_ID"
+
 echo
 echo "== student =="
 JAR=$(mktemp)
@@ -480,6 +585,39 @@ check "cannot list classes to mark" 403 GET "/api/attendance/sessions?date=$ATT_
 check "cannot open a class roll" 403 GET "/api/attendance/sheet?scheduleId=1&date=$ATT_MON"
 check "cannot read the academy summary" 403 GET /api/attendance/summary
 check "cannot mark attendance" 403 POST /api/attendance "{\"scheduleId\":1,\"date\":\"$ATT_MON\",\"entries\":[{\"studentId\":1,\"status\":\"PRESENT\"}]}"
+check "cannot read the at-risk list" 403 GET /api/attendance/at-risk
+
+# Marks, deadlines and notes: the student reads their own and nothing above them.
+check "own progress" 200 GET /api/progress/me
+expect_in "own weighted score" '"overallPercent"'
+expect_in "own progress breaks down by subject" '"subjectCode":"JAVC"'
+expect_in "own marks are listed in order" '"points"'
+expect_in "own attendance sits beside the marks" '"attendanceRate"'
+expect_in "the mark from faculty is visible" '"marks":19'
+expect_in "the remark from faculty is visible" '"remark":"Well tested"'
+check "own deadlines" 200 GET '/api/assessments?classLevel=Full%20Stack%20Java&section=A'
+expect_in "own list shows what is marked" '"myMarks":19'
+expect_in "own list shows the type" '"kind":"ASSIGNMENT"'
+check "own alerts" 200 GET /api/alerts
+expect_in "alerts give a threshold" '"threshold"'
+check "own upcoming work" 200 GET '/api/upcoming?days=14'
+expect_in "upcoming gives own classes" '"classLevel":"Full Stack Java"'
+expect_out "upcoming drops other divisions" '"classLevel":"Data Analysis"'
+check "own notes" 200 GET /api/students/me/comments
+expect_in "the student reads the office note" 'keep the test coverage up'
+check "notes are not deletable by the student" 403 DELETE "/api/comments/$ADMIN_COMMENT_ID"
+check "own class only in the deadline list" 200 GET /api/assessments
+expect_out "another division is absent" '"classLevel":"Full Stack Python"'
+expect_out "another programme is absent" '"classLevel":"UI/UX"'
+check "cannot open a grade sheet" 403 GET "/api/assessments/$ASSESSMENT_ID/grades"
+check "cannot save marks" 403 PUT "/api/assessments/$ASSESSMENT_ID/grades" '{"entries":[{"studentId":1,"marks":20}]}'
+check "cannot set a deadline" 403 POST /api/assessments "$ASSESSMENT"
+check "cannot edit a deadline" 403 PUT "/api/assessments/$ASSESSMENT_ID" "$ASSESSMENT"
+check "cannot delete a deadline" 403 DELETE "/api/assessments/$ASSESSMENT_ID"
+check "cannot read another student's progress" 403 GET /api/students/2/progress
+check "cannot read another student's notes" 403 GET /api/students/2/comments
+check "cannot leave a note" 403 POST /api/students/1/comments '{"body":"Not allowed"}'
+check "cannot use the staff summary" 403 GET /api/attendance/summary
 
 echo
 echo "== access control without a session =="
@@ -497,8 +635,20 @@ check "profile picture needs login" 401 GET /api/profile/photo/1
 check "attendance lists need login" 401 GET /api/attendance/summary
 check "attendance marking needs login" 401 POST /api/attendance '{"scheduleId":1,"date":"2026-10-19","entries":[{"studentId":1,"status":"PRESENT"}]}'
 check "own attendance needs login" 401 GET /api/attendance/me
+check "at-risk list needs login" 401 GET /api/attendance/at-risk
+check "deadline list needs login" 401 GET /api/assessments
+check "deadline creation needs login" 401 POST /api/assessments '{"subjectId":1,"classLevel":"Full Stack Java","section":"A","title":"x","kind":"QUIZ","dueDate":"2026-11-05","maxMarks":10}'
+check "grade sheet needs login" 401 GET /api/assessments/1/grades
+check "saving marks needs login" 401 PUT /api/assessments/1/grades '{"entries":[{"studentId":1,"marks":9}]}'
+check "own progress needs login" 401 GET /api/progress/me
+check "student progress needs login" 401 GET /api/students/1/progress
+check "notes need login" 401 GET /api/students/1/comments
+check "leaving a note needs login" 401 POST /api/students/1/comments '{"body":"x"}'
+check "alerts need login" 401 GET /api/alerts
+check "upcoming work needs login" 401 GET /api/upcoming
 check "portal page redirects" 302 GET /index.html
 check "attendance page redirects" 302 GET /attendance.html
+check "grades page redirects" 302 GET /progress.html
 check "sign-in page is public" 200 GET /login.html
 expect_out "sign-in page does not publish demo passwords" "admin123"
 check "privacy policy is public" 200 GET /privacy.html
@@ -512,6 +662,24 @@ expect_in "shared percentage-bar builder exists" 'function rateBars'
 expect_in "shared daily-column builder exists" 'function rateColumns'
 check "dashboard script is served" 200 GET /js/dashboard.js
 expect_in "dashboard uses the shared bar builder" 'Portal.rateBars('
+expect_in "dashboard raises the alerts card" 'alertsCard('
+expect_in "dashboard lists the at-risk students" 'api/attendance/at-risk'
+expect_in "dashboard links the grades page" 'href="progress.html"'
+check "grades script is served" 200 GET /js/progress.js
+expect_in "grades page asks for the marks" 'api/progress/me'
+expect_in "grades page sets the deadlines" 'api/assessments'
+expect_in "grades page reads the deadline window" 'api/upcoming'
+expect_in "grades page draws the trend chart" 'trendLine('
+check "attendance script is served" 200 GET /js/attendance.js
+expect_in "attendance page warns low trackers" 'api/attendance/at-risk'
+check "profile script is served" 200 GET /js/student-profile.js
+expect_in "profile shows subject marks" 'gradesCard('
+expect_in "profile shows faculty notes" 'notesCard('
+check "shared builders are served again" 200 GET /js/app.js
+expect_in "the trend chart is shared" 'function trendLine'
+expect_in "the alert list is shared" 'function alertList'
+expect_in "the sparkline is shared" 'function sparkline'
+expect_in "the menu carries the grades page" "key: 'grades'"
 check "timetable script is served" 200 GET /js/schedule.js
 expect_in "the planner asks for the whole week at once" 'api/schedules/week'
 expect_in "every day column offers a one-click add" 'data-add-day'
@@ -522,6 +690,9 @@ echo "cleanup"
 JAR=$(mktemp); login "$JAR" admin admin123 > /dev/null
 check "remove leftover student 2" 200 DELETE "/api/students/$ENROLL_ID"
 [ -n "${TEACHER_ID:-}" ] && check "remove leftover teacher" 200 DELETE "/api/teachers/$TEACHER_ID"
+[ -n "${ASSESSMENT_ID:-}" ] && check "remove the smoke deadline" 200 DELETE "/api/assessments/$ASSESSMENT_ID"
+[ -n "${OTHER_ASSESSMENT_ID:-}" ] && check "remove the second smoke deadline" 200 DELETE "/api/assessments/$OTHER_ASSESSMENT_ID"
+[ -n "${ADMIN_COMMENT_ID:-}" ] && check "remove the smoke note" 200 DELETE "/api/comments/$ADMIN_COMMENT_ID"
 rm -f "$JAR"
 
 echo

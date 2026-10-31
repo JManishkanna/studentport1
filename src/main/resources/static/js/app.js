@@ -13,6 +13,7 @@ const Portal = (() => {
         { key: 'teachers', label: 'Teachers', href: 'teachers.html', icon: 'teachers', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
         { key: 'schedule', label: 'Timetable', href: 'schedule.html', icon: 'schedule', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
         { key: 'attendance', label: 'Attendance', href: 'attendance.html', icon: 'attendance', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
+        { key: 'grades', label: 'Grades', href: 'progress.html', icon: 'grades', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
         { key: 'contacts', label: 'Contacts', href: 'contacts.html', icon: 'contacts', roles: ['ADMIN', 'TEACHER', 'STUDENT'] },
         { key: 'certificates', label: 'Certificates', href: 'certificates.html', icon: 'certificates', roles: ['ADMIN'] },
         { section: 'Account' },
@@ -28,6 +29,7 @@ const Portal = (() => {
         teachers: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
         schedule: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/>',
         attendance: '<path d="M9 4h6M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1z"/><rect x="4" y="4" width="16" height="18" rx="2"/><path d="m8.5 13 2 2 4-4"/>',
+        grades: '<path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/>',
         contacts: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>',
         certificates: '<circle cx="12" cy="8" r="6"/><path d="M15.5 13.5 17 22l-5-3-5 3 1.5-8.5"/>',
         user: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3"/><path d="M6.5 19a6 6 0 0 1 11 0"/>',
@@ -547,6 +549,100 @@ const Portal = (() => {
         return value === null || value === '' ? fallback : value;
     }
 
+    function shortDate(value) {
+        if (!value) return '';
+        const date = new Date(`${value}T00:00:00`);
+        return Number.isNaN(date.getTime())
+            ? value
+            : date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+    }
+
+    function kindBadge(kind) {
+        const labels = { ASSIGNMENT: 'Assignment', QUIZ: 'Quiz', EXAM: 'Exam' };
+        const key = (kind || '').toLowerCase();
+        return `<span class="badge kind-${esc(key)}">${esc(labels[kind] || kind || 'Work')}</span>`;
+    }
+
+    /**
+     * Score percentages across assessments, oldest on the left, with the pass line drawn in.
+     * Points must already be filtered to graded work.
+     */
+    function trendLine(points, { aria = 'Score trend', threshold = 75, emptyTitle = 'No marks yet', emptyHint = '' } = {}) {
+        const scored = (points || []).filter(point => point.percent !== null && point.percent !== undefined);
+        if (!scored.length) {
+            return emptyState(emptyTitle, emptyHint);
+        }
+        const W = 660;
+        const H = 200;
+        const left = 40;
+        const right = 16;
+        const top = 16;
+        const bottom = 42;
+        const plotW = W - left - right;
+        const plotH = H - top - bottom;
+        const step = plotW / scored.length;
+        const px = index => left + step * index + step / 2;
+        const py = pct => top + plotH - plotH * Math.max(0, Math.min(100, pct)) / 100;
+        const grid = [0, 25, 50, 75, 100].map(pct => {
+            const y = py(pct);
+            return `<line class="chart-grid" x1="${left}" x2="${W - right}" y1="${y}" y2="${y}"></line>
+                <text class="chart-value" x="${left - 6}" y="${y + 3}" text-anchor="end">${pct}</text>`;
+        }).join('');
+        const line = scored.map((point, index) => `${px(index).toFixed(1)},${py(point.percent).toFixed(1)}`).join(' ');
+        const dots = scored.map((point, index) => `<circle class="chart-dot" cx="${px(index).toFixed(1)}" cy="${py(point.percent).toFixed(1)}" r="4">
+                <title>${esc(point.title)}: ${point.percent.toFixed(1)}%${point.marks !== null && point.marks !== undefined ? ` (${point.marks}/${point.maxMarks})` : ''}</title>
+            </circle>`).join('');
+        const labels = scored.map((point, index) => `
+            <text class="chart-note" x="${px(index).toFixed(1)}" y="${H - bottom + 17}" text-anchor="middle">${esc(shortDate(point.dueDate))}</text>
+            <text class="chart-value" x="${px(index).toFixed(1)}" y="${H - bottom + 30}" text-anchor="middle">${point.percent.toFixed(0)}%</text>`).join('');
+        return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(aria)}">
+            ${grid}
+            <line class="chart-threshold" x1="${left}" x2="${W - right}" y1="${py(threshold)}" y2="${py(threshold)}"></line>
+            <polyline class="chart-line" points="${line}"></polyline>
+            <line class="chart-axis" x1="${left}" x2="${W - right}" y1="${top + plotH}" y2="${top + plotH}"></line>
+            ${dots}
+            ${labels}
+        </svg>`;
+    }
+
+    /** A small inline trend, no axes. Values are percentages. */
+    function sparkline(values, { aria = 'Trend' } = {}) {
+        const vals = (values || []).filter(value => value !== null && value !== undefined);
+        if (vals.length < 2) {
+            return '<span class="cell-sub">-</span>';
+        }
+        const W = 92;
+        const H = 28;
+        const pad = 3;
+        const px = index => pad + (W - pad * 2) * index / (vals.length - 1);
+        const py = value => H - pad - (H - pad * 2) * Math.max(0, Math.min(100, value)) / 100;
+        const points = vals.map((value, index) => `${px(index).toFixed(1)},${py(value).toFixed(1)}`).join(' ');
+        const last = vals[vals.length - 1];
+        return `<svg class="sparkline" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(aria)}">
+            <polyline points="${points}"></polyline>
+            <circle cx="${px(vals.length - 1).toFixed(1)}" cy="${py(last).toFixed(1)}" r="2.5"></circle>
+        </svg>`;
+    }
+
+    function alertList(alerts, { emptyTitle = 'Nothing needs attention', emptyHint = '', limit = 0 } = {}) {
+        const rows = limit ? (alerts || []).slice(0, limit) : (alerts || []);
+        if (!rows.length) {
+            return emptyState(emptyTitle, emptyHint);
+        }
+        const label = { danger: 'Needs attention', warn: 'Watch', info: 'Note' };
+        return `<ul class="alerts">${rows.map(alert => {
+            const body = `
+                <div class="alert-body">
+                    <div class="alert-title">${esc(alert.title)}</div>
+                    <div class="alert-detail">${esc(alert.detail)}</div>
+                </div>
+                <span class="alert-tag">${esc(label[alert.level] || 'Note')}</span>`;
+            return alert.link
+                ? `<li><a class="alert ${esc(alert.level)}" href="${esc(alert.link)}">${body}</a></li>`
+                : `<li><div class="alert ${esc(alert.level)}">${body}</div></li>`;
+        }).join('')}</ul>`;
+    }
+
     /** Posts for a file answer and saves it; a failed run still arrives as JSON. */
     async function download(path, body, fallbackName = 'download.pdf') {
         const response = await fetch(path, {
@@ -622,6 +718,7 @@ const Portal = (() => {
         esc, get, post, put, del, boot, refreshCsrf, current, isAdmin, isTeacher, isStudent, label,
         initials, formatDate, formatTime, dayName, days: DAYS, age,
         mountShell, toast, recordForm, confirmDialog, loginDialog, statusBadge, avatar, slotCard, emptyState, queryParam,
+        shortDate, kindBadge, trendLine, sparkline, alertList,
         rateBars, rateColumns, download, upload, refreshMe,
     };
 })();

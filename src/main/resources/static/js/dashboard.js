@@ -1,5 +1,5 @@
 (async () => {
-    const { esc, get, formatDate, formatTime, dayName, statusBadge, slotCard, initials } = Portal;
+    const { esc, get, formatDate, formatTime, dayName, statusBadge, slotCard, initials, alertList, sparkline, kindBadge, avatar } = Portal;
     const content = document.getElementById('content');
 
     const isoDay = new Date().getDay();
@@ -24,13 +24,65 @@
         fail(error);
     }
 
+    /* ------------------------------------------------ shared cards */
+
+    /** Deadlines inside the next fortnight, newest first from the server. */
+    function deadlineList(upcoming, limit = 5) {
+        const rows = (upcoming.assessments || []).slice(0, limit);
+        if (!rows.length) {
+            return Portal.emptyState('Nothing is due in the next 14 days', '');
+        }
+        return `<ul class="up-list">${rows.map(row => `
+            <li class="up-item">
+                <span class="up-when">${esc(Portal.shortDate(row.dueDate))}</span>
+                <div class="up-main">
+                    <div class="cell-strong">${esc(row.title)} ${kindBadge(row.kind)}</div>
+                    <div class="cell-sub">${esc(row.subjectName)}${row.classLevel ? ' · ' + esc(row.classLevel) + (row.section ? ' ' + esc(row.section) : '') : ''}</div>
+                </div>
+                <span class="up-side">${row.daysLeft === 0 ? '<span class="up-due">today</span>'
+            : row.daysLeft === 1 ? '<span class="up-due">tomorrow</span>'
+                : `in ${row.daysLeft} days`}</span>
+            </li>`).join('')}</ul>`;
+    }
+
+    function alertsCard(alerts, hint) {
+        return `
+            <div class="card">
+                <div class="card-head">
+                    <h2>Needs attention</h2>
+                    <span class="hint">${alerts.total} open · ${esc(hint)}</span>
+                </div>
+                <div class="card-body">
+                    ${alertList(alerts.alerts, {
+            emptyTitle: 'Nothing needs attention today',
+            emptyHint: 'Attendance, marks and deadlines all look clear.',
+            limit: 5,
+        })}
+                </div>
+            </div>`;
+    }
+
+    function deadlinesCard(upcoming) {
+        return `
+            <div class="card">
+                <div class="card-head">
+                    <h2>Due next</h2>
+                    <span class="hint">to ${esc(formatDate(upcoming.to))}</span>
+                </div>
+                <div class="card-body tight">${deadlineList(upcoming)}</div>
+            </div>`;
+    }
+
     /* ------------------------------------------------ student home */
     async function renderStudentView(me, today) {
-        const [profile, schedule, subjects, attendance] = await Promise.all([
+        const [profile, schedule, subjects, attendance, alerts, progress, upcoming] = await Promise.all([
             get('api/students/me'),
             get('api/students/me/schedule'),
             get('api/students/me/subjects'),
             get('api/attendance/me'),
+            get('api/alerts'),
+            get('api/progress/me'),
+            get('api/upcoming?days=14'),
         ]);
 
         Portal.mountShell({
@@ -51,6 +103,11 @@
                 <div class="card stat amber"><span class="value">${next ? `${formatTime(next.startTime)}` : '-'}</span><span class="label">First period</span></div>
             </section>
 
+            <section class="grid two">
+                ${alertsCard(alerts, 'attendance, marks and deadlines')}
+                ${deadlinesCard(upcoming)}
+            </section>
+
             <section class="card">
                 <div class="card-head">
                     <h2>My attendance</h2>
@@ -65,6 +122,37 @@
             emptyHint: 'Your classes appear here once your faculty marks them.',
         })}
                     <p class="chart-note-line">${RATE_NOTE}</p>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-head">
+                    <h2>Marks so far</h2>
+                    <span class="hint">${progress.overallPercent === null
+                ? 'nothing graded yet'
+                : `weighted ${Number(progress.overallPercent).toFixed(1)}% across ${progress.subjects.reduce((total, row) => total + row.graded, 0)} mark(s)`}</span>
+                    <a class="btn btn-ghost btn-sm" href="progress.html">All grades</a>
+                </div>
+                <div class="card-body tight">
+                    <table>
+                        <thead><tr><th>Subject</th><th class="num">Weighted</th><th>Trend</th><th class="num">Attendance</th></tr></thead>
+                        <tbody>
+                            ${progress.subjects.map(subject => `
+                                <tr>
+                                    <td>
+                                        <div class="cell-strong">${esc(subject.subjectName)}</div>
+                                        <div class="cell-sub">${esc(subject.subjectCode)} · ${subject.graded} mark(s)${subject.pending ? `, ${subject.pending} due` : ''}</div>
+                                    </td>
+                                    <td class="num">${subject.percent === null ? '—' : `${Number(subject.percent).toFixed(1)}%`}</td>
+                                    <td>${sparkline(subject.points.filter(point => point.percent !== null).map(point => point.percent), { aria: `Score trend for ${subject.subjectName}` })}</td>
+                                    <td class="num">
+                                        ${subject.attendanceTotal
+                                    ? `<span class="delta ${subject.lowAttendance ? 'down' : 'flat'}">${Number(subject.attendanceRate).toFixed(1)}%</span>`
+                                    : '<span class="cell-sub">no marks</span>'}
+                                    </td>
+                                </tr>`).join('') || `<tr><td colspan="4">${Portal.emptyState('No subjects enrolled yet', 'Your marks appear here once you are enrolled.')}</td></tr>`}
+                        </tbody>
+                    </table>
                 </div>
             </section>
 
@@ -131,7 +219,12 @@
         if (me.role === 'TEACHER' && me.teacherId) {
             mine = (await get(`api/teachers/${me.teacherId}/schedule`)).filter(row => row.dayOfWeek === today);
         }
-        const attendance = await get('api/attendance/summary');
+        const [attendance, alerts, atRisk, upcoming] = await Promise.all([
+            get('api/attendance/summary'),
+            get('api/alerts'),
+            get('api/attendance/at-risk'),
+            get('api/upcoming?days=14'),
+        ]);
 
         const actions = me.role === 'ADMIN'
             ? `<a class="btn btn-ghost" href="contacts.html">Contacts</a>
@@ -155,6 +248,11 @@
                 <div class="card stat amber"><span class="value">${stats.sessionsToday}</span><span class="label">Classes today</span></div>
             </section>
 
+            <section class="grid two">
+                ${alertsCard(alerts, me.role === 'ADMIN' ? 'across the academy' : 'across your classes')}
+                ${deadlinesCard(upcoming)}
+            </section>
+
             <section class="card">
                 <div class="card-head">
                     <h2>Attendance rate</h2>
@@ -171,6 +269,39 @@
                     <p class="chart-note-line">${RATE_NOTE}</p>
                 </div>
             </section>
+
+            ${atRisk.students.length ? `
+            <section class="card">
+                <div class="card-head">
+                    <h2>Below ${Number(atRisk.threshold).toFixed(0)}% attendance</h2>
+                    <span class="hint">${atRisk.students.length} student(s) · ${formatDate(atRisk.from)} to ${formatDate(atRisk.to)}</span>
+                    <a class="btn btn-ghost btn-sm" href="attendance.html?date=${atRisk.to}">Take attendance</a>
+                </div>
+                <div class="card-body tight">
+                    <table>
+                        <thead><tr><th>Student</th><th>Class</th><th class="num">Rate</th><th class="num">Missed</th><th class="num">To recover</th><th></th></tr></thead>
+                        <tbody>
+                            ${atRisk.students.map(row => `
+                                <tr class="clickable" data-open="${row.studentId}">
+                                    <td>
+                                        <div class="person">
+                                            ${avatar(row.photoUrl, row.fullName, 'avatar-xs')}
+                                            <div>
+                                                <div class="cell-strong">${esc(row.fullName)}</div>
+                                                <div class="cell-sub">${esc(row.rollNumber)}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td><span class="badge">${esc(row.classLevel)}${row.section ? ' · ' + esc(row.section) : ''}</span></td>
+                                    <td class="num"><span class="delta down">${Number(row.rate).toFixed(1)}%</span></td>
+                                    <td class="num">${row.absent} of ${row.total}</td>
+                                    <td class="num">${row.needed} class(es)</td>
+                                    <td class="num"><span class="cell-sub">${esc(row.weakestSubject || '')}${row.weakestRate !== null && row.weakestRate !== undefined ? ` · ${Number(row.weakestRate).toFixed(1)}%` : ''}</span></td>
+                                </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </section>` : ''}
 
             ${me.role === 'TEACHER' ? `
             <section class="card">
@@ -214,4 +345,12 @@
                 </div>
             </section>`;
     }
+
+    /* Rows in the low-attendance card open that student's profile. */
+    content.addEventListener('click', event => {
+        const row = event.target.closest('tr[data-open]');
+        if (row) {
+            window.location.href = `student-profile.html?id=${row.dataset.open}`;
+        }
+    });
 })();

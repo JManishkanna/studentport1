@@ -33,13 +33,13 @@ about to build in:
 ```bash
 # Git Bash / Linux / macOS
 export MYSQL_USER=root
-export MYSQL_PASSWORD='your-password'
+export MYSQL_PASSWORD='FURY@1916'
 ```
 
 ```powershell
 # Windows PowerShell
 $env:MYSQL_USER     = "root"
-$env:MYSQL_PASSWORD = "your-password"
+$env:MYSQL_PASSWORD = "FURY@1916"
 $env:MYSQL_HOST     = "localhost"   # optional, this is the default
 $env:MYSQL_PORT     = "3306"        # optional, this is the default
 ```
@@ -78,7 +78,7 @@ Student and teacher sign-ins are their academy email, on the default password un
 
 ### 2.4 Open the webpage
 
-Browse to <http://localhost:8080>. You are redirected to `login.html`; sign in with one of the demo
+Browse to <http://localhost:8081>. You are redirected to `login.html`; sign in with one of the demo
 accounts in section 4. Unsigned calls to `/api/**` answer `401` instead of a redirect, so `fetch()`
 can tell an expired session from a successful response.
 
