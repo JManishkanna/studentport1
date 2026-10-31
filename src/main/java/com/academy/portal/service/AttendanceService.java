@@ -8,6 +8,7 @@ import com.academy.portal.domain.Student;
 import com.academy.portal.domain.Subject;
 import com.academy.portal.dto.AttendanceMarkRequest;
 import com.academy.portal.dto.AttendanceSessionDto;
+import com.academy.portal.dto.AtRiskDto;
 import com.academy.portal.dto.AttendanceSheetDto;
 import com.academy.portal.dto.AttendanceSummaryDto;
 import com.academy.portal.dto.ScheduleRow;
@@ -44,6 +45,7 @@ public class AttendanceService {
     public static final String LATE = "LATE";
     private static final Set<String> STATUSES = Set.of(PRESENT, ABSENT, LATE);
     private static final int MAX_RANGE_DAYS = 366;
+    public static final double LOW_RATE = 75.0;
 
     private final AttendanceRepository attendanceRepository;
     private final ClassScheduleRepository scheduleRepository;
@@ -198,17 +200,7 @@ public class AttendanceService {
             throw new AccessDeniedException("Attendance summaries are available to administrators and faculty");
         }
 
-        List<AttendanceRecord> records = attendanceRepository.findInRange(range.from(), range.to(),
-                trimToNull(classLevel), trimToNull(section));
-        if (me.getRole() == Role.TEACHER) {
-            Set<String> allowed = scheduleRepository.rowsForTeacher(requireTeacherId(me)).stream()
-                    .map(row -> sessionKey(row.subjectId(), row.classLevel(), row.section(), row.startTime()))
-                    .collect(Collectors.toSet());
-            records = records.stream()
-                    .filter(record -> allowed.contains(sessionKey(record.getSubjectId(), record.getClassLevel(),
-                            record.getSection(), record.getStartTime())))
-                    .toList();
-        }
+        List<AttendanceRecord> records = scopedRecords(me, range, trimToNull(classLevel), trimToNull(section));
 
         Map<String, long[]> classes = new TreeMap<>();
         Map<String, String[]> labels = new HashMap<>();
@@ -300,7 +292,85 @@ public class AttendanceService {
                 rate(totals[0], totals[2], sum(totals)), subjects, days, history);
     }
 
+    // ---- low attendance ----------------------------------------------------
+
+    /**
+     * Students under the warning threshold, lowest rate first. The count of classes they need to
+     * attend in a row is the smallest n with (attended + n) / (total + n) at or above the threshold.
+     */
+    @Transactional(readOnly = true)
+    public AtRiskDto atRisk(LocalDate from, LocalDate to, String classLevel, String section) {
+        DateRange range = normalize(from, to);
+        AppUser me = currentUserService.requireCurrentUser();
+        if (me.getRole() == Role.STUDENT) {
+            throw new AccessDeniedException("The at-risk list is available to administrators and faculty");
+        }
+
+        List<AttendanceRecord> records = scopedRecords(me, range, trimToNull(classLevel), trimToNull(section));
+        Map<Long, long[]> totals = new HashMap<>();
+        Map<Long, Map<Long, long[]>> bySubject = new HashMap<>();
+        for (AttendanceRecord record : records) {
+            tally(totals.computeIfAbsent(record.getStudentId(), ignored -> new long[3]), record.getStatus());
+            bySubject.computeIfAbsent(record.getStudentId(), ignored -> new HashMap<>())
+                    .computeIfAbsent(record.getSubjectId(), ignored -> new long[3]);
+            tally(bySubject.get(record.getStudentId()).get(record.getSubjectId()), record.getStatus());
+        }
+
+        Map<Long, Student> students = studentRepository.findAll().stream()
+                .collect(Collectors.toMap(Student::getId, Function.identity()));
+        Map<Long, Subject> catalog = subjectRepository.findAllByOrderByCodeAsc().stream()
+                .collect(Collectors.toMap(Subject::getId, Function.identity()));
+
+        List<AtRiskDto.Row> rows = new ArrayList<>();
+        totals.forEach((studentId, count) -> {
+            Student student = students.get(studentId);
+            long total = sum(count);
+            double rate = rate(count[0], count[2], total);
+            if (student == null || total == 0 || rate >= LOW_RATE) {
+                return;
+            }
+            Subject weakest = null;
+            double weakestRate = Double.MAX_VALUE;
+            for (Map.Entry<Long, long[]> entry : bySubject.getOrDefault(studentId, Map.of()).entrySet()) {
+                long subjectTotal = sum(entry.getValue());
+                if (subjectTotal == 0) {
+                    continue;
+                }
+                double subjectRate = rate(entry.getValue()[0], entry.getValue()[2], subjectTotal);
+                if (subjectRate < weakestRate) {
+                    weakestRate = subjectRate;
+                    weakest = catalog.get(entry.getKey());
+                }
+            }
+            long needed = Math.max(0, (long) Math.ceil(3.0 * total - 4.0 * (count[0] + count[2])));
+            rows.add(new AtRiskDto.Row(student.getId(), student.getRollNumber(),
+                    (student.getFirstName() + " " + student.getLastName()).trim(),
+                    photoService.urlForPerson(Role.STUDENT, student.getId()).orElse(null),
+                    student.getClassLevel(), student.getSection(), count[0], count[1], count[2], total, rate,
+                    needed, weakest == null ? null : weakest.getName(),
+                    weakest == null ? null : Math.round(weakestRate * 10.0) / 10.0));
+        });
+        rows.sort(Comparator.comparingDouble(AtRiskDto.Row::rate).thenComparing(AtRiskDto.Row::rollNumber));
+        return new AtRiskDto(range.from(), range.to(), LOW_RATE, rows);
+    }
+
     // ---- helpers -----------------------------------------------------------
+
+    /** Attendance records the caller may see, narrowed to their own classes for faculty. */
+    private List<AttendanceRecord> scopedRecords(AppUser me, DateRange range, String classLevel, String section) {
+        List<AttendanceRecord> records = attendanceRepository.findInRange(range.from(), range.to(),
+                classLevel, section);
+        if (me.getRole() != Role.TEACHER) {
+            return records;
+        }
+        Set<String> allowed = scheduleRepository.rowsForTeacher(requireTeacherId(me)).stream()
+                .map(row -> sessionKey(row.subjectId(), row.classLevel(), row.section(), row.startTime()))
+                .collect(Collectors.toSet());
+        return records.stream()
+                .filter(record -> allowed.contains(sessionKey(record.getSubjectId(), record.getClassLevel(),
+                        record.getSection(), record.getStartTime())))
+                .toList();
+    }
 
     private AttendanceSheetDto buildSheet(ClassSchedule schedule, LocalDate date) {
         ScheduleRow row = scheduleRepository.rowsForClass(schedule.getClassLevel(), schedule.getSection()).stream()
@@ -403,14 +473,14 @@ public class AttendanceService {
     }
 
     /** A late arrival still attended, so it is counted with the presents in the rate. */
-    private static double rate(long present, long late, long total) {
+    static double rate(long present, long late, long total) {
         if (total == 0) {
             return 0.0;
         }
         return Math.round((present + late) * 1000.0 / total) / 10.0;
     }
 
-    private static void tally(long[] tally, String status) {
+    static void tally(long[] tally, String status) {
         switch (status) {
             case PRESENT -> tally[0]++;
             case ABSENT -> tally[1]++;
@@ -420,7 +490,7 @@ public class AttendanceService {
         }
     }
 
-    private static long sum(long[] tally) {
+    static long sum(long[] tally) {
         return tally[0] + tally[1] + tally[2];
     }
 
@@ -430,15 +500,15 @@ public class AttendanceService {
                 rate(count[0], count[2], total));
     }
 
-    private static String pair(String classLevel, String section) {
+    static String pair(String classLevel, String section) {
         return classLevel + '\u0001' + (section == null ? "" : section);
     }
 
-    private static String sessionKey(Long subjectId, String classLevel, String section, java.time.LocalTime startTime) {
+    static String sessionKey(Long subjectId, String classLevel, String section, java.time.LocalTime startTime) {
         return subjectId + "\u0001" + pair(classLevel, section) + "\u0001" + startTime;
     }
 
-    private static String trimToNull(String value) {
+    static String trimToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
     }
 

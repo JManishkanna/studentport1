@@ -3,6 +3,7 @@ package com.academy.portal.web;
 import com.academy.portal.dto.AttendanceMarkRequest;
 import com.academy.portal.dto.AttendanceSessionDto;
 import com.academy.portal.dto.AttendanceSheetDto;
+import com.academy.portal.dto.AtRiskDto;
 import com.academy.portal.dto.AttendanceSummaryDto;
 import com.academy.portal.dto.StudentAttendanceDto;
 import com.academy.portal.service.AttendanceService;
@@ -66,5 +67,15 @@ public class AttendanceController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return attendanceService.myAttendance(from, to);
+    }
+
+    @GetMapping("/at-risk")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
+    public AtRiskDto atRisk(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) String classLevel,
+            @RequestParam(required = false) String section) {
+        return attendanceService.atRisk(from, to, classLevel, section);
     }
 }

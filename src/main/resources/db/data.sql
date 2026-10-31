@@ -142,6 +142,88 @@ JOIN (
 ) d
 WHERE cs.day_of_week = WEEKDAY(d.session_date) + 1;
 
+-- The week of 26 October, Monday to Thursday. Kabir Singh misses every class that week so the
+-- low-attendance warning has someone to warn about, and Aarav Menon misses one Spring Boot class
+-- so his dashboard shows a missed-class alert. Friday 30 October is left unmarked on purpose: it
+-- is what the faculty "attendance not taken" alert points at.
+INSERT IGNORE INTO attendance (student_id, subject_id, class_level, section, session_date, start_time, status)
+SELECT s.id, cs.subject_id, cs.class_level, cs.section, d.session_date, cs.start_time,
+       CASE
+           WHEN s.id = 7 THEN 'ABSENT'
+           WHEN s.id = 1 AND cs.id = 8 THEN 'ABSENT'
+           WHEN MOD(s.id * 5 + cs.id * 3 + DAYOFYEAR(d.session_date), 19) = 0 THEN 'ABSENT'
+           WHEN MOD(s.id * 7 + cs.id * 2 + DAYOFYEAR(d.session_date), 13) = 0 THEN 'LATE'
+           ELSE 'PRESENT'
+       END
+FROM class_schedules cs
+JOIN students s
+  ON s.class_level = cs.class_level
+ AND s.section <=> cs.section
+ AND s.status = 'ACTIVE'
+JOIN (
+    SELECT DATE '2026-10-26' AS session_date
+    UNION ALL SELECT DATE '2026-10-27'
+    UNION ALL SELECT DATE '2026-10-28'
+    UNION ALL SELECT DATE '2026-10-29'
+) d
+WHERE cs.id BETWEEN 1 AND 40
+  AND cs.day_of_week = WEEKDAY(d.session_date) + 1;
+
+-- Coursework for every subject each seeded division takes: four pieces already marked, two due in
+-- the next fortnight and the end-term exam. Assignments and quizzes shift by a day or two between
+-- subjects so a class does not have everything due on the same date.
+INSERT IGNORE INTO assessments (subject_id, class_level, section, title, kind, due_date, max_marks, description)
+SELECT pairs.subject_id, pairs.class_level, pairs.section, t.title, t.kind,
+       IF(t.kind = 'EXAM', t.due_date, DATE_ADD(t.due_date, INTERVAL MOD(pairs.subject_id, 3) DAY)),
+       t.max_marks, t.description
+FROM (
+    SELECT DISTINCT subject_id, class_level, section
+    FROM class_schedules
+    WHERE id BETWEEN 1 AND 40
+) pairs
+JOIN (
+    SELECT 'Assignment 1' AS title, 'ASSIGNMENT' AS kind, DATE '2026-09-25' AS due_date, 20 AS max_marks,
+           'Module 1 exercises, submitted through the lab repository.' AS description
+    UNION ALL SELECT 'Quiz 1', 'QUIZ', DATE '2026-10-07', 10, 'Twenty minutes, closed book, in class.'
+    UNION ALL SELECT 'Mid-term exam', 'EXAM', DATE '2026-10-16', 50, 'Covers modules 1 to 3. Ninety minutes.'
+    UNION ALL SELECT 'Assignment 2', 'ASSIGNMENT', DATE '2026-10-23', 20, 'Module 2 exercises, submitted through the lab repository.'
+    UNION ALL SELECT 'Quiz 2', 'QUIZ', DATE '2026-11-04', 10, 'Twenty minutes, closed book, in class.'
+    UNION ALL SELECT 'Project checkpoint', 'ASSIGNMENT', DATE '2026-11-09', 30, 'Show a working slice of the capstone project and its plan for the rest.'
+    UNION ALL SELECT 'End-term exam', 'EXAM', DATE '2026-11-27', 100, 'Covers the whole term. Three hours.'
+) t;
+
+-- Marks for the four pieces already due, for every active student enrolled in the subject. The
+-- score is derived from the ids so it is the same on every boot, and each student-subject pair
+-- trends up, down or holds steady across the four. Assignment 2 for Spring Boot REST APIs is left
+-- unmarked so its faculty sees a "marks to enter" alert.
+INSERT IGNORE INTO grades (assessment_id, student_id, marks, remark)
+SELECT a.id, s.id,
+       ROUND(a.max_marks * LEAST(100, GREATEST(30,
+             58 + MOD(s.id * 17 + a.subject_id * 5, 30)
+             + (FIELD(a.title, 'Assignment 1', 'Quiz 1', 'Mid-term exam', 'Assignment 2') - 1)
+               * CASE MOD(s.id + a.subject_id, 3) WHEN 0 THEN 6 WHEN 1 THEN -5 ELSE 0 END
+             + MOD(a.id * 7 + s.id * 3, 9) - 4)) / 50) / 2,
+       NULL
+FROM assessments a
+JOIN students s
+  ON s.class_level = a.class_level
+ AND s.section <=> a.section
+ AND s.status = 'ACTIVE'
+JOIN enrollments e
+  ON e.student_id = s.id
+ AND e.subject_id = a.subject_id
+WHERE a.title IN ('Assignment 1', 'Quiz 1', 'Mid-term exam', 'Assignment 2')
+  AND s.id BETWEEN 1 AND 12
+  AND NOT (a.subject_id = 2 AND a.title = 'Assignment 2');
+
+INSERT IGNORE INTO student_comments (id, student_id, subject_id, teacher_id, author_name, author_role, body, created_at) VALUES
+ (1, 1, 2, 1, 'Suresh Babu', 'TEACHER', 'Clean controller layering in Assignment 1. Before the project checkpoint, add tests for the error responses, not only the happy path.', '2026-10-20 16:10:00'),
+ (2, 1, 4, 5, 'Priya Desai', 'TEACHER', 'Good DOM work in the mid-term. Please redo the form validation exercise: the empty email and the long name cases were not handled.', '2026-10-27 12:35:00'),
+ (3, 3, 1, 1, 'Suresh Babu', 'TEACHER', 'Quiz 1 shows a gap between interfaces and abstract classes. Revise the module 1 notes and bring questions to Thursday''s lab.', '2026-10-09 15:00:00'),
+ (4, 7, 5, 3, 'Neelam Kaur', 'TEACHER', 'Missed every class this week. Please see me on Monday so we can plan how to catch up before Quiz 2.', '2026-10-29 17:20:00'),
+ (5, 9, 9, 2, 'Kavita Anand', 'TEACHER', 'The hypothesis test write-up was clear and well argued. Watch the units when you report confidence intervals.', '2026-10-19 11:45:00'),
+ (6, 12, 15, 4, 'Thomas Mathew', 'TEACHER', 'The prototype flows are well reasoned. Add the empty and error states before the checkpoint review.', '2026-10-28 14:05:00');
+
 INSERT IGNORE INTO contacts (id, category, name, department, phone, alternate_phone, email, location, available_hours) VALUES
  (1, 'ADMISSIONS', 'Admissions Desk', 'Front Office', '+91 80 4000 1000', '+91 80 4000 1001', 'admissions@academy.edu', 'Main Gate, Block A', 'Mon-Sat 08:30 - 16:30'),
  (2, 'OFFICE', 'Academy Office', 'Administration', '+91 80 4000 1010', NULL, 'office@academy.edu', 'Block A - Ground', 'Mon-Fri 09:00 - 17:00'),

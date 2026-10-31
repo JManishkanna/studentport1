@@ -185,3 +185,59 @@ SET @add_user_phone = (
 PREPARE add_user_phone FROM @add_user_phone;
 EXECUTE add_user_phone;
 DEALLOCATE PREPARE add_user_phone;
+
+-- Coursework one class division is marked on. A title is unique per subject and division, which
+-- also keeps the seeded rows from being inserted twice.
+CREATE TABLE IF NOT EXISTS assessments (
+    id          BIGINT       AUTO_INCREMENT PRIMARY KEY,
+    subject_id  BIGINT       NOT NULL,
+    class_level VARCHAR(30)  NOT NULL,
+    section     VARCHAR(10),
+    title       VARCHAR(120) NOT NULL,
+    kind        VARCHAR(12)  NOT NULL COMMENT 'ASSIGNMENT | QUIZ | EXAM',
+    due_date    DATE         NOT NULL,
+    max_marks   INT          NOT NULL,
+    description VARCHAR(500),
+    created_by  BIGINT,
+    created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_assessment_subject FOREIGN KEY (subject_id) REFERENCES subjects (id) ON DELETE CASCADE,
+    CONSTRAINT fk_assessment_author FOREIGN KEY (created_by) REFERENCES app_users (id) ON DELETE SET NULL,
+    CONSTRAINT uq_assessment_title UNIQUE (subject_id, class_level, section, title),
+    INDEX idx_assessment_class (class_level, section, due_date),
+    INDEX idx_assessment_due (due_date)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE IF NOT EXISTS grades (
+    id            BIGINT       AUTO_INCREMENT PRIMARY KEY,
+    assessment_id BIGINT       NOT NULL,
+    student_id    BIGINT       NOT NULL,
+    marks         DECIMAL(6,2) NOT NULL,
+    remark        VARCHAR(200),
+    graded_by     BIGINT,
+    graded_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_grade_assessment FOREIGN KEY (assessment_id) REFERENCES assessments (id) ON DELETE CASCADE,
+    CONSTRAINT fk_grade_student FOREIGN KEY (student_id) REFERENCES students (id) ON DELETE CASCADE,
+    CONSTRAINT fk_grade_marker FOREIGN KEY (graded_by) REFERENCES app_users (id) ON DELETE SET NULL,
+    CONSTRAINT uq_grade_student UNIQUE (assessment_id, student_id),
+    INDEX idx_grade_student (student_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- Notes faculty and administrators leave on a student's record. The student reads every note
+-- about them. teacher_id records the author's faculty record so seeded notes stay owned by the
+-- teacher even before the sign-ins exist.
+CREATE TABLE IF NOT EXISTS student_comments (
+    id          BIGINT        AUTO_INCREMENT PRIMARY KEY,
+    student_id  BIGINT        NOT NULL,
+    subject_id  BIGINT,
+    teacher_id  BIGINT,
+    author_id   BIGINT,
+    author_name VARCHAR(120)  NOT NULL,
+    author_role VARCHAR(20)   NOT NULL COMMENT 'ADMIN | TEACHER',
+    body        VARCHAR(1000) NOT NULL,
+    created_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_comment_student FOREIGN KEY (student_id) REFERENCES students (id) ON DELETE CASCADE,
+    CONSTRAINT fk_comment_subject FOREIGN KEY (subject_id) REFERENCES subjects (id) ON DELETE SET NULL,
+    CONSTRAINT fk_comment_teacher FOREIGN KEY (teacher_id) REFERENCES teachers (id) ON DELETE SET NULL,
+    CONSTRAINT fk_comment_author FOREIGN KEY (author_id) REFERENCES app_users (id) ON DELETE SET NULL,
+    INDEX idx_comment_student (student_id, created_at)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
